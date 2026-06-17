@@ -49,7 +49,7 @@ CRUD /sessions        → PostgreSQL
 This is the **tool server**. It is intentionally decoupled from any specific agent.
 Any agent that needs knowledge ingestion and search can wire to this API.
 
-Related: [scout-agent](https://github.com/Delliance/scout-agent) — the AI research agent that uses this API as its primary tool.
+Related: [scout-agent](https://github.com/aukern/scout-agent) — the AI research agent that uses this API as its primary tool.
 
 ---
 
