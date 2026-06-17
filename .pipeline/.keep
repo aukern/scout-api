@@ -1,0 +1,4 @@
+# Pipeline workspace — agent-only files go here.
+# CONTEXT.md is written here by /auk-1-grill.
+# This directory is gitignored except for committed source-of-truth files.
+# See .gitignore for what is and isn't tracked.

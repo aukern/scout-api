@@ -1,0 +1,173 @@
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-wheel-metadata/
+share/python-wheels/
+
+# =============================================================================
+# Virtual environments — NEVER commit these
+# =============================================================================
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# =============================================================================
+# Testing
+# =============================================================================
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.hypothesis/
+nosetests.xml
+test-results.xml
+
+# =============================================================================
+# Type checkers
+# =============================================================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# =============================================================================
+# Linters / formatters
+# =============================================================================
+.ruff_cache/
+
+# =============================================================================
+# Secrets and config — NEVER commit these
+# =============================================================================
+.env
+.env.*
+!.env.example
+
+secrets.yaml
+*.pem
+*.key
+*.p12
+*.pfx
+.llm_budget.json         # LLM spend tracker — local state, not for version control
+
+# =============================================================================
+# Databases
+# =============================================================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# =============================================================================
+# Logs
+# =============================================================================
+logs/
+*.log
+*.jsonl
+log/
+
+# =============================================================================
+# Build / packaging
+# =============================================================================
+.build/
+_build/
+target/
+*.spec
+
+# =============================================================================
+# IDE and editors
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.orig
+
+# =============================================================================
+# Docker
+# =============================================================================
+.docker/
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# CI / coverage artifacts
+# =============================================================================
+.github/artifacts/
+coverage-report/
+
+# =============================================================================
+# Pre-commit
+# =============================================================================
+.pre-commit-lock.json
+
+# =============================================================================
+# Engineering pipeline — transient state (never commit)
+# =============================================================================
+# Runtime DB and progress tracking — machine-local state, not source of truth.
+.pipeline/manifest.db
+.pipeline/progress.md
+
+# Per-slice phase artifacts — inter-agent handoff data, rebuild on re-run.
+# Pattern: .pipeline/1/, .pipeline/2/, .pipeline/42/, etc.
+.pipeline/[0-9]*/
+.pipeline/[0-9][0-9]*/
+.pipeline/[0-9][0-9][0-9]*/
+
+# =============================================================================
+# Engineering pipeline — source of truth (DO commit these)
+# =============================================================================
+# Everything not matched above under .pipeline/ is committed, including:
+# .pipeline/CONTEXT.md          ← project identity, written by auk-1 once
+# .pipeline/ISSUES.md           ← GitHub fallback when offline
+# .pipeline/CHANGE_SCOPE.md     ← written by auk-1 for update/pipeline-update cycles
+# .pipeline/RETROFIT_SCOPE.md   ← written by auk-1 for retrofit cycles
+# .pipeline/prototype/          ← poc.py + deps.py + FINDINGS.md
+# .pipeline/orientation/        ← MODULE_MAP, DEPENDENCY_MAP, CONVENTIONS (from auk-0-orient)
+
+.llm_budget.json
