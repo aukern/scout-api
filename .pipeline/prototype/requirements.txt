@@ -1,0 +1,4 @@
+# Python libs the prototype imports (deps.py). Documents what to install;
+# create a venv and `pip install -r` this file. The user's env stays the user's.
+asyncpg
+litellm

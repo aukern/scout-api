@@ -1,0 +1,36 @@
+# Run harness for the Scout API prototype — dev/test only.
+# Provisions the REAL externals deps.py talks to. NOT part of the production container
+# auk-4 builds; external dependencies stay external and env-pluggable.
+#
+#   docker compose -f .pipeline/prototype/docker-compose.yml up -d
+#   # one-time: pull the keyless local models
+#   docker compose -f .pipeline/prototype/docker-compose.yml exec ollama ollama pull nomic-embed-text
+#   docker compose -f .pipeline/prototype/docker-compose.yml exec ollama ollama pull llama3.2
+
+services:
+  db:
+    image: pgvector/pgvector:pg16          # Postgres + pgvector, official image
+    environment:
+      POSTGRES_USER: scout
+      POSTGRES_PASSWORD: scout
+      POSTGRES_DB: scout_api_poc
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scout -d scout_api_poc"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama                   # keyless local embeddings + LLM
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  pgdata:
+  ollama:
