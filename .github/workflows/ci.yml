@@ -1,0 +1,559 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 4 * * 1'  # Every Monday at 04:00 UTC — mutation tests
+
+env:
+  APP_ENV: dev
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ── Tests ────────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          # aukern-infra is an internal package not on PyPI.
+          # Set AUKERN_INFRA_GIT_URL secret (GitHub repo Settings → Secrets) to:
+          #   git+https://<token>@github.com/aukern/aukern-infra.git@main
+          # If the secret is absent, this step is a no-op (aukern-infra must then
+          # be present in requirements-lock.txt or installed another way).
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+
+      - name: Run unit tests
+        run: pytest tests/ -q --tb=short --ignore=tests/test_infra -m "not integration"
+
+      - name: Run infra tests
+        run: pytest tests/test_infra/ -q --tb=short
+
+  # ── Integration Tests ─────────────────────────────────────────────────────────
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+
+      - name: Run integration tests
+        run: pytest tests/ -q --tb=short -m "integration" --timeout=60
+        env:
+          APP_ENV: dev
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          REDIS_URL: redis://localhost:6379/0
+
+  # ── Performance Benchmarks ────────────────────────────────────────────────────
+  # Runs on push to main only — benchmarks are noisy on shared runners.
+  # Fails if any benchmark regresses > 10% vs the stored baseline.
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+          uv pip install pytest-benchmark
+
+      - name: Restore benchmark baseline
+        uses: actions/cache@v4
+        with:
+          path: .benchmarks/
+          key: benchmarks-${{ github.ref_name }}
+          restore-keys: benchmarks-main
+
+      - name: Run benchmarks
+        run: |
+          pytest tests/ -m "benchmark" \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-compare \
+            --benchmark-compare-fail=mean:10% \
+            -q --tb=short
+        env:
+          APP_ENV: dev
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+        # --benchmark-compare-fail=mean:10% — fails if any benchmark mean regresses > 10% vs baseline
+
+      - name: Save benchmark baseline
+        uses: actions/cache@v4
+        with:
+          path: .benchmarks/
+          key: benchmarks-${{ github.sha }}
+
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-report
+          path: benchmark-results.json
+          retention-days: 30
+
+  # ── Mutation Tests ────────────────────────────────────────────────────────────
+  # Runs weekly (Monday 04:00 UTC) and on push to main.
+  # Gate: ≥80% of introduced mutations must be caught by the test suite.
+  # Scope: src/ only — not infra wrappers or generated code.
+  mutation:
+    name: Mutation Tests
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+          uv pip install mutmut
+
+      - name: Run mutation tests
+        run: |
+          mutmut run \
+            --paths-to-mutate src/ \
+            --tests-dir tests/ \
+            --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'" \
+            --use-coverage \
+            --no-progress
+        env:
+          APP_ENV: dev
+
+      - name: Check mutation score (gate ≥80%)
+        run: |
+          python3 - <<'EOF'
+          import subprocess, sys, re
+
+          result = subprocess.run(["mutmut", "results"], capture_output=True, text=True)
+          output = result.stdout + result.stderr
+
+          survived_match = re.search(r"(\d+) out of (\d+) mutants survived", output)
+          if not survived_match:
+              # Try alternate format
+              survived = output.count("survived")
+              killed = output.count("killed")
+          else:
+              survived = int(survived_match.group(1))
+              total_in_match = int(survived_match.group(2))
+              killed = total_in_match - survived
+
+          total = survived + killed
+          if total == 0:
+              print("WARN: No mutants generated — check --paths-to-mutate points to business logic")
+              sys.exit(0)
+
+          score = (killed / total) * 100
+          print(f"Mutation score: {score:.1f}% ({killed}/{total} mutants killed)")
+
+          if score < 80:
+              print(f"BLOCKER: Mutation score {score:.1f}% < 80% — tests are missing bug-catching assertions")
+              print("Run locally: mutmut results  — to see which mutations survived")
+              sys.exit(1)
+
+          print(f"PASS: Mutation score {score:.1f}% >= 80%")
+          EOF
+
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: .mutmut-cache
+          retention-days: 7
+
+  # ── Coverage ─────────────────────────────────────────────────────────────────
+  coverage:
+    name: Coverage Gate (≥90%)
+    runs-on: ubuntu-latest
+    needs: [test, integration]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+
+      - name: Run coverage
+        run: pytest tests/ tests/test_infra/ --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=90 -q -m "not integration"
+        env:
+          APP_ENV: dev
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ── Lint ──────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+
+      - name: Ruff lint (includes complexity C901)
+        run: ruff check src/ tests/
+
+      - name: Ruff format check
+        run: ruff format --check src/ tests/
+
+      - name: Mypy type check
+        run: mypy src/ --ignore-missing-imports
+
+  # ── Security ─────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install aukern-infra
+        run: |
+          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
+            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+          uv pip install bandit pip-audit
+
+      - name: Bandit SAST scan
+        run: bandit -r src/ -ll --exclude tests/
+
+      - name: pip-audit dependency vulnerability scan
+        run: pip-audit --requirement requirements-lock.txt --strict
+        # Fails if any known CVE is found in any installed dependency.
+        # Fix: upgrade the vulnerable package and regenerate requirements-lock.txt.
+
+      - name: Check for hardcoded secrets in source
+        run: |
+          ! grep -rn "api_key\s*=\s*['\"]" src/ tests/ || (echo "HARDCODED SECRET FOUND" && exit 1)
+          ! grep -rn "password\s*=\s*['\"]" src/ tests/ || (echo "HARDCODED PASSWORD FOUND" && exit 1)
+          ! grep -rn "token\s*=\s*['\"]" src/ tests/ || (echo "HARDCODED TOKEN FOUND" && exit 1)
+          echo "No hardcoded secrets found."
+
+      - name: Scan git history for secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        # Advisory: reports to PR comments but does not block the build.
+        # Upgrade to fail-on-detection once baseline is clean.
+
+  # ── Container image CVE scan ─────────────────────────────────────────────────
+  trivy:
+    name: Container CVE Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: docker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true   # load into local Docker daemon for Trivy to scan
+          tags: scan-target:latest
+          cache-from: type=gha
+
+      - name: Trivy — scan OS packages and app dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: scan-target:latest
+          format: table
+          exit-code: 1          # fails the build on HIGH or CRITICAL CVEs
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true  # skip CVEs with no available fix yet
+
+  # ── Reproducibility check ────────────────────────────────────────────────────
+  lockfile:
+    name: Lockfile up to date
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Check requirements-lock.txt is current
+        run: |
+          pip install uv
+          uv pip compile pyproject.toml --output-file requirements-lock.check.txt --quiet --generate-hashes
+          diff requirements-lock.txt requirements-lock.check.txt || \
+            (echo "LOCKFILE STALE: run 'make lock' to regenerate requirements-lock.txt" && exit 1)
+
+  # ── SBOM ─────────────────────────────────────────────────────────────────────
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: uv
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip sync requirements-lock.txt
+          uv pip install -e ".[dev]" --no-deps
+          uv pip install cyclonedx-bom
+
+      - name: Generate SBOM (CycloneDX JSON)
+        run: cyclonedx-py environment --output-format json --outfile sbom.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+          retention-days: 90
+        # SBOM is kept for 90 days per build.
+        # Enterprise clients requiring SBOM delivery: download from GitHub Actions artifacts.
+
+  # ── Docker build ──────────────────────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build image (multi-arch, with OCI labels)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ github.repository }}:${{ github.sha }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        env:
+          # APP_VERSION and GIT_SHA are passed as env vars so /version and
+          # startup logs work correctly at runtime (not just as OCI labels)
+          APP_VERSION: ${{ github.ref_name }}
+          GIT_SHA: ${{ github.sha }}
+
+  # ── SLSA provenance attestation ───────────────────────────────────────────────
+  # Generates a signed provenance statement: what was built, from what commit,
+  # by which workflow, on which runner. Attached to the GitHub release and
+  # verifiable with: gh attestation verify <artifact> --repo <owner/repo>
+  # This is SLSA Build Level 1 — free, zero-config, no key management needed.
+  provenance:
+    name: SLSA Provenance
+    runs-on: ubuntu-latest
+    needs: docker
+    permissions:
+      id-token: write   # required for keyless signing via Sigstore
+      contents: write   # required to attach attestation to the release
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for attestation
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          outputs: type=docker,dest=/tmp/image.tar
+          tags: ${{ github.repository }}:${{ github.sha }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+
+      - name: Generate SLSA provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: /tmp/image.tar

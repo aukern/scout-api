@@ -34,8 +34,7 @@ class CreateCollectionRequest(BaseModel):
             raise ValueError("Collection name must not be blank.")
         if not re.match(r"^[a-zA-Z0-9_\-]+$", v):
             raise ValueError(
-                "Collection name may only contain letters, numbers, hyphens, "
-                "and underscores."
+                "Collection name may only contain letters, numbers, hyphens, and underscores."
             )
         return v
 

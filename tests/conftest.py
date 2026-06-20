@@ -19,13 +19,12 @@ Requirements:
 from __future__ import annotations
 
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 import asyncpg
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from scout_api.main import create_app
@@ -101,9 +100,7 @@ async def async_client(db_pool: asyncpg.Pool) -> AsyncGenerator[AsyncClient, Non
     app.state.pool = db_pool
 
     # Bypass lifespan so we don't open a second pool
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
 
@@ -134,7 +131,5 @@ async def mock_client(mock_pool: MagicMock) -> AsyncGenerator[AsyncClient, None]
     app = create_app()
     app.state.pool = mock_pool
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client

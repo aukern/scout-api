@@ -9,8 +9,8 @@ The pool is stored on app.state.pool and accessed by routers via db.get_pool().
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 

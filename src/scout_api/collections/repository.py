@@ -56,8 +56,8 @@ class CollectionRepository:
                 "INSERT INTO collections (name) VALUES ($1) RETURNING id, name",
                 name,
             )
-        except asyncpg.UniqueViolationError:
-            raise CollectionAlreadyExistsError(name)
+        except asyncpg.UniqueViolationError as exc:
+            raise CollectionAlreadyExistsError(name) from exc
 
         return CollectionRow(id=row["id"], name=row["name"])
 
@@ -67,9 +67,7 @@ class CollectionRepository:
         Returns:
             List of CollectionRow objects, oldest first.
         """
-        rows = await self._conn.fetch(
-            "SELECT id, name FROM collections ORDER BY id ASC"
-        )
+        rows = await self._conn.fetch("SELECT id, name FROM collections ORDER BY id ASC")
         return [CollectionRow(id=r["id"], name=r["name"]) for r in rows]
 
     async def delete(self, name: str) -> None:

@@ -9,16 +9,15 @@ so no cleanup code is needed.
 
 from __future__ import annotations
 
+import asyncpg
 import pytest
 import pytest_asyncio
-import asyncpg
 
 from scout_api.collections.errors import (
     CollectionAlreadyExistsError,
     CollectionNotFoundError,
 )
 from scout_api.collections.repository import CollectionRepository
-
 
 # ---------------------------------------------------------------------------
 # Helpers

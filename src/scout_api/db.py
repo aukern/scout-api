@@ -46,7 +46,6 @@ def get_pool(request: Request) -> asyncpg.Pool:
     pool: asyncpg.Pool | None = getattr(request.app.state, "pool", None)
     if pool is None:
         raise RuntimeError(
-            "Database pool not initialized. "
-            "Ensure the app lifespan is configured correctly."
+            "Database pool not initialized. Ensure the app lifespan is configured correctly."
         )
     return pool
