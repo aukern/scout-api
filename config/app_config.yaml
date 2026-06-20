@@ -1,0 +1,151 @@
+# app_config.yaml — Shared defaults (all environments)
+# =====================================================
+# Base configuration shared across dev, staging, and production.
+# Per-environment files override these values:
+#   config/app_config.dev.yaml     — local development
+#   config/app_config.staging.yaml — staging
+#   config/app_config.prod.yaml    — production (the one you edit before going live)
+
+# ── Database ──────────────────────────────────────────────────────────────────
+# PostgreSQL DSN — password injected at runtime via DATABASE_URL env var in docker-compose.
+# This value is the fallback when running outside Docker (e.g. local dev without Compose).
+# In docker-compose the env var DATABASE_URL overrides this, expanding POSTGRES_PASSWORD.
+DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb"
+MAX_CONNECTIONS: 10
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+LOG_LEVEL: INFO
+
+# ── Resilience — external calls (database, HTTP, cache, file I/O) ─────────────
+# These are read by service and repository code at import time.
+# Override per environment: staging/prod may need different values.
+resilience:
+  timeout_seconds: 30.0                 # seconds before an external call is aborted
+  max_retries: 3                        # attempts before giving up (includes first try)
+  circuit_breaker_threshold: 5          # consecutive failures before circuit opens
+  circuit_breaker_recovery_seconds: 30.0  # seconds before circuit tries again
+
+# ── AI / LLM ──────────────────────────────────────────────────────────────────
+# Which model to use and which API key — set in .env, NOT here.
+# These are behavioral/resilience settings only. They do not change which provider is used.
+#
+# .env sets: LLM_MODEL, LLM_BASE_URL, GEMINI_API_KEY (or whichever key)
+# See .env.example for the full list and instructions.
+llm:
+  # LLM calls are slower than regular HTTP — separate timeout from resilience defaults
+  timeout_seconds: 120.0                # seconds before an LLM call is aborted
+  max_retries: 3                        # retry on rate limits and transient errors
+  circuit_breaker_threshold: 5          # failures before circuit opens on LLM provider
+  circuit_breaker_recovery_seconds: 60.0  # LLM providers recover slower than internal services
+
+  # LangGraph only — max iterations before a graph is force-stopped
+  max_graph_iterations: 5
+  # LangGraph only — max concurrent graph.ainvoke() calls (bulkhead, prevents spend spikes under load)
+  max_concurrent_graphs: 5
+
+  spend_cap:
+    daily_usd: 5.0             # REQUIRED: set to your actual expected daily usage before going live
+    monthly_usd: 20.0          # REQUIRED: also set a limit in your LLM provider console (see HANDOFF.md)
+    # "disable" = hard-stop: AI endpoints return {"status": "unavailable"} when cap is hit (SAFE DEFAULT)
+    # "notify_only" = log only: AI keeps running past cap — use only if you have a provider-level backstop
+    action: disable
+    # SpendTracker persists state to .pipeline/spend_state.json — survives container restarts
+    # Do NOT set budget_file here — state file path is managed by SpendTracker internally
+
+  # Response cache — avoids paying for identical LLM calls twice
+  # type "in-memory": single-process LRU, cleared on restart (no extra setup)
+  # type "redis": shared across replicas — reads redis.url above (no separate redis_url needed)
+  cache:
+    enabled: false
+    type: in-memory
+    ttl_seconds: 3600
+    max_size: 1000             # in-memory only: max cached entries before LRU eviction
+
+# ── Server ────────────────────────────────────────────────────────────────────
+server:
+  port: 8000                      # internal container port (also set in Dockerfile EXPOSE)
+  workers: 2                      # uvicorn worker processes — 2 is a safe default for Postgres
+  shutdown_timeout_seconds: 30    # seconds to drain in-flight requests before SIGKILL
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+rate_limit:
+  default: "60/minute"
+  ai_endpoints: "10/minute"
+  tokens_per_minute: 100000   # shared token budget across ALL LLM calls in the container — resets every 60s
+                               # prevents a single client or runaway loop from burning the entire API budget
+                               # tune based on your provider's TPM quota and expected concurrent load
+
+# ── Background tasks ─────────────────────────────────────────────────────────
+# ARQ uses Redis as its broker — it reads redis.url (same Redis instance as the cache).
+# In docker-compose, REDIS_URL env var is injected to both the app and worker containers.
+arq:
+  enabled: false
+  max_jobs: 10
+  job_timeout: 300
+  keep_result: 3600
+
+# ── Observability ────────────────────────────────────────────────────────────
+observability:
+  langfuse_enabled: false
+  # Webhook URL receives a POST for every LLM call. Set AI_EVENTS_WEBHOOK_URL in .env,
+  # or set this value directly. Leave empty to disable.
+  ai_events_webhook_url: ""
+
+# ── Authentication ────────────────────────────────────────────────────────────
+# Containers that are only called by other internal services leave this off.
+# Containers callable from outside (plugins, users, external clients) turn it on.
+auth:
+  enabled: false          # true = every domain endpoint requires Bearer token
+  algorithm: HS256        # JWT signing algorithm — HS256 or RS256
+  # Secret key comes from vault: JWT_SECRET_KEY (required when enabled: true)
+
+# ── API ───────────────────────────────────────────────────────────────────────
+api:
+  version: v1             # URL prefix for all domain routers: /v1/{resource}
+  default_page_size: 20   # rows returned when client does not specify page_size
+  max_page_size: 100      # hard ceiling — client cannot request more than this
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+# Single Redis instance shared by the cache layer ([py:redis]) and the job queue ([py:arq]).
+# In docker-compose, REDIS_URL env var overrides this with the internal Docker hostname.
+# This value is the fallback for running outside Docker (e.g. local dev without Compose).
+redis:
+  url: "redis://localhost:6379/0"
+  ttl_seconds: 300        # default cache TTL — override per-method as needed
+  key_prefix: "{project_name}"
+
+# ── Object Storage (S3-compatible) ───────────────────────────────────────────
+# Used when [py:s3] overlay is active. Credentials come from .env (AWS_ACCESS_KEY_ID etc.)
+# S3_ENDPOINT_URL in .env controls the backend: empty = AWS S3, set = R2/MinIO/Spaces.
+s3:
+  bucket: "{project_name}-files"
+  region: "us-east-1"
+  presigned_url_expiry_seconds: 3600
+
+# ── Vector Database ───────────────────────────────────────────────────────────
+# Used when [py:vector] overlay is active.
+# backend: pgvector (uses existing postgres) | qdrant (external Qdrant service)
+# Qdrant credentials (QDRANT_URL, QDRANT_API_KEY) come from .env.
+vector:
+  backend: pgvector
+  collection: "{project_name}"
+  embedding_dimension: 1536      # must match your embedding model: OpenAI=1536, Gemini=768
+  distance: cosine               # cosine | dot | euclid
+
+# ── WebSocket ─────────────────────────────────────────────────────────────────
+# Used when [py:websocket] overlay is active. Controls the ConnectionManager.
+websocket:
+  max_connections: 100           # per-instance limit — scale horizontally beyond this
+  ping_interval_seconds: 30      # keepalive ping to prevent load balancer idle timeout
+  message_timeout_seconds: 120   # max wait for initial client message after connect
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Default: no origins allowed. Uncomment and set for browser-facing APIs.
+# For internal APIs (mobile app, server-to-server): leave empty — no browser CORS needed.
+# For a public frontend:
+#   allowed_origins:
+#     - https://your-app.com
+#     - https://admin.your-app.com
+cors:
+  allowed_origins: []
+  allow_credentials: false

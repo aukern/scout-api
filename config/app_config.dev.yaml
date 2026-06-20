@@ -1,0 +1,17 @@
+# app_config.dev.yaml — development overrides
+# Active when APP_ENV=dev (default)
+
+DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb_dev"
+LOG_LEVEL: DEBUG
+MAX_CONNECTIONS: 5
+
+resilience:
+  timeout_seconds: 60.0      # more forgiving in dev — local services are slower to start
+
+llm:
+  timeout_seconds: 180.0     # extra slack for dev LLM calls (cold starts, slow models)
+  max_graph_iterations: 10   # allow more iterations in dev for debugging agent behaviour
+  spend_cap:
+    daily_usd: 2.0           # tight cap in dev so test runs don't burn money
+    monthly_usd: 10.0
+    action: disable          # hard-stop in dev — don't silently accumulate spend

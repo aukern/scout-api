@@ -1,0 +1,233 @@
+# app_config.prod.yaml — Production configuration
+# =================================================
+# This file is the single place to configure your service for production.
+# It is NOT committed to git (see .gitignore) — each deployment has its own copy.
+#
+# SECRETS go in .env — not here. .env holds API keys,
+# tokens, and passwords. This file holds everything else.
+#
+# WHAT TO CHANGE: Read each section. Most values work as-is.
+# The main things people usually change:
+#   → Which AI model to use (see "AI Models" section)
+#   → Spend limits (see "AI Spend Limits")
+#   → Allowed origins for your frontend (see "CORS")
+#   → How many requests per minute your API allows (see "Rate Limiting")
+#
+# Everything else: if you don't know what it does, leave it alone.
+
+
+# ── Basics ────────────────────────────────────────────────────────────────────
+
+LOG_LEVEL: WARNING        # Production logs warnings and errors only (not INFO noise)
+MAX_CONNECTIONS: 20       # Database connection pool size
+
+
+# ── Resilience ────────────────────────────────────────────────────────────────
+# How external calls (database, HTTP, cache) behave under failure.
+# These are read by the service code — no redeploy needed to tune them,
+# just update this file and restart the container.
+#
+# timeout_seconds: abort the call after this many seconds.
+#   Too low → false timeouts under load. Too high → slow degradation under failure.
+#   30s is right for most HTTP APIs and databases.
+#
+# max_retries: total attempts (first try + N-1 retries).
+#   3 means one real attempt + 2 retries. Set to 1 to disable retries.
+#
+# circuit_breaker_threshold: consecutive failures before the breaker opens.
+#   When open, calls fail immediately instead of waiting for timeout.
+#
+# circuit_breaker_recovery_seconds: how long the breaker stays open before retrying.
+
+resilience:
+  timeout_seconds: 30.0
+  max_retries: 3
+  circuit_breaker_threshold: 5
+  circuit_breaker_recovery_seconds: 30.0
+
+
+# ── AI Models ─────────────────────────────────────────────────────────────────
+# The service tries models in order: primary first, then fallback_1, then fallback_2.
+# If the primary model fails or is unavailable, it automatically switches to the next.
+#
+# CHANGING THE MODEL: Replace the "model:" value. Format is "provider/model-name".
+#
+# Free (requires a free API key from the provider):
+#   gemini/gemini-1.5-flash    → Google, free tier, good for most tasks
+#   gemini/gemini-1.5-pro      → Google, free tier with lower limits
+#
+# Paid — cheap and fast (good for fallback):
+#   anthropic/claude-haiku-4-5  → ~$0.001 per 1000 words
+#   openai/gpt-4o-mini          → ~$0.0002 per 1000 words
+#
+# Paid — high quality:
+#   anthropic/claude-sonnet-4-6  → Best for complex reasoning
+#   openai/gpt-4o                → Best for general use
+#
+# Your API keys for these providers go in .env, not here.
+
+llm:
+  # Which model to use: set LLM_MODEL in .env — NOT here.
+  # Format: "provider/model-name". Examples:
+  #   gemini/gemini-1.5-flash        (Google, free tier)
+  #   anthropic/claude-haiku-4-5     (cheap and fast)
+  #   anthropic/claude-sonnet-4-6    (best for complex tasks)
+  #   openai/gpt-4o-mini             (cheap OpenAI)
+  # Fallbacks: set LLM_FALLBACK_1 and LLM_FALLBACK_2 in .env for automatic failover.
+
+  # LLM calls need longer timeouts than regular HTTP — Claude/GPT can take 60–120s.
+  # These override the resilience defaults above for LLM calls only.
+  timeout_seconds: 120.0
+  max_retries: 3
+  circuit_breaker_threshold: 5
+  circuit_breaker_recovery_seconds: 60.0
+
+  # LangGraph only — force-stop agent loops after this many iterations.
+  # Prevents runaway graphs from making unlimited LLM calls.
+  # Set lower (3) for tight cost control, higher (10) for complex reasoning tasks.
+  max_graph_iterations: 5
+
+
+# ── AI Spend Limits ───────────────────────────────────────────────────────────
+# Safety limits so you don't get a surprise bill.
+# When the limit is hit: action "disable" stops AI calls immediately.
+# "notify_only" logs a warning but keeps going — useful if the service must stay up.
+#
+# Set these to whatever your project budget allows.
+# The service tracks spend across restarts in .llm_budget.json.
+
+  spend_cap:
+    daily_usd: 10.0        # hard stop at $10/day
+    monthly_usd: 100.0     # hard stop at $100/month
+    action: disable        # "disable" stops calls | "notify_only" just warns
+
+
+# ── AI Response Cache ─────────────────────────────────────────────────────────
+# Caches identical AI requests so you don't pay for the same call twice.
+# Good for: repeated queries, classification, FAQs.
+# Turn off for: creative tasks, personalized responses.
+#
+# type "in-memory": cached only in this process, cleared on restart. Simple, no extra setup.
+# type "redis": shared cache across all server instances. Needs Redis (already in docker-compose).
+
+  cache:
+    enabled: true
+    type: in-memory        # change to "redis" if running multiple instances
+    ttl_seconds: 3600      # cache entries expire after 1 hour
+
+
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+# How many requests per minute a single IP address can make.
+# 60/minute is standard for most APIs.
+# Format: "N/second", "N/minute", "N/hour", "N/day"
+
+rate_limit:
+  default: "60/minute"      # all routes
+  ai_endpoints: "10/minute" # tighter limit for AI-powered routes (they cost money)
+
+
+# ── Background Tasks (ARQ) ────────────────────────────────────────────────────
+# When an AI call takes more than ~10 seconds, the service runs it in the background.
+# Instead of waiting, the API returns a job ID immediately.
+# The client checks the status with GET /jobs/{id}/status.
+#
+# enabled: false  → AI calls run inline (simple, works for fast models)
+# enabled: true   → long AI calls run as background jobs (requires Redis)
+#
+# If you're not sure: leave it false. You can enable it later if needed.
+
+arq:
+  enabled: false
+  max_jobs: 10          # how many background jobs run at the same time
+  job_timeout: 300      # kill a job after 5 minutes if it hasn't finished
+  keep_result: 3600     # keep job results available for 1 hour after completion
+
+
+# ── LLM Call Tracing (Langfuse) ───────────────────────────────────────────────
+# Langfuse is a free dashboard that shows every AI call: what was sent,
+# what came back, how long it took, and what it cost.
+# Useful for debugging AI problems and monitoring cost.
+#
+# To enable: set to true, then add LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY
+# to your .env. Get free keys at cloud.langfuse.com.
+
+observability:
+  langfuse_enabled: false
+  ai_events_webhook_url: ""  # optional: URL to receive AI call events (POST)
+
+
+# ── Server ───────────────────────────────────────────────────────────────────
+# port: the port uvicorn listens on inside the container.
+#   The host port mapping is in docker-compose.yml → APP_PORT env var.
+#   Change this only if you have a port conflict inside the container.
+#
+# workers: how many uvicorn processes handle requests.
+#   1 is correct if using SQLite (SQLite has one writer — multiple workers fight).
+#   Use 2-4 if you switch to PostgreSQL and have multiple CPU cores.
+#
+# shutdown_timeout_seconds: how long the container waits to drain in-flight
+#   requests before force-stopping. Match this to your longest request latency.
+#   For LLM-heavy services, consider 60-120s.
+
+server:
+  port: 8000
+  workers: 1
+  shutdown_timeout_seconds: 30
+
+
+# ── Authentication ───────────────────────────────────────────────────────────
+# Controls whether callers must present a valid JWT token.
+#
+# enabled: false → no auth (use for internal services never called from outside)
+# enabled: true  → every domain endpoint requires "Authorization: Bearer <token>"
+#
+# The container validates tokens but never issues them.
+# Token issuance is handled by your auth gateway or identity provider.
+#
+# When enabled: add JWT_SECRET_KEY to config/.env.
+# Generate a key: python -c "import secrets; print(secrets.token_hex(32))"
+
+auth:
+  enabled: false      # set to true for any container callable from outside
+  algorithm: HS256    # HS256 for shared secret | RS256 for public/private key pair
+
+
+# ── API ───────────────────────────────────────────────────────────────────────
+# Pagination limits for list endpoints.
+# default_page_size: rows returned when client does not specify page_size.
+# max_page_size: hard ceiling — client cannot request more than this.
+# Raise max_page_size carefully — large pages = large DB queries = slow responses.
+
+api:
+  version: v1
+  default_page_size: 20
+  max_page_size: 100
+
+
+# ── Redis / Caching ───────────────────────────────────────────────────────────
+# Used by slices tagged [py:redis] for read-through caching.
+# Redis must be running (already in docker-compose if [py:redis] was used).
+
+redis:
+  url: "redis://redis:6379/0"  # Docker hostname — overridden at runtime by REDIS_URL env var in docker-compose.yml
+  ttl_seconds: 60         # shorter TTL in production (data changes more)
+  key_prefix: "{project_name}"
+
+
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Controls which websites can call this API from a browser.
+# ["*"] means any website can call it — fine for internal tools and mobile apps.
+# To restrict access to your own frontend only:
+#   allowed_origins:
+#     - https://your-app.com
+#     - https://admin.your-app.com
+
+cors:
+  # List the exact origins your frontend runs on. No wildcards in production.
+  # Example:
+  #   allowed_origins:
+  #     - https://your-app.com
+  #     - https://admin.your-app.com
+  # For internal APIs (called from mobile apps or server-to-server): leave empty — no browser CORS needed.
+  allowed_origins: []
+  allow_credentials: false  # set to true only if you use cookies for auth

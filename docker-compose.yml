@@ -1,0 +1,245 @@
+# version field intentionally omitted — deprecated in Compose v2, causes warnings
+# See: https://docs.docker.com/compose/compose-file/04-version-and-name/
+
+# ── Required environment variables ────────────────────────────────────────────
+# Set these in a .env file at the project root (gitignored):
+#   COMPOSE_PROJECT_NAME=my-project    ← sets container names; defaults to "myapp"
+#   APP_ENV=prod                       ← defaults to "prod"
+#   APP_PORT=8000                      ← host port; defaults to 8000
+#   POSTGRES_PASSWORD=changeme         ← required when postgres profile active
+#
+# Profiles — start only what your project needs:
+#   docker compose up                                        ← app only
+#   docker compose --profile postgres up                     ← app + postgres (local dev)
+#   docker compose --profile redis up                        ← app + redis (local dev)
+#   docker compose --profile worker --profile redis up       ← background jobs (redis required)
+#   docker compose --profile postgres --profile redis up     ← combine freely
+#   docker compose --profile observability up                ← app + jaeger tracing UI
+#
+# External services (LLMs, cloud DBs, managed Redis):
+#   Set DATABASE_URL, REDIS_URL, LLM_MODEL, LLM_BASE_URL etc. in .env — no profile needed.
+
+# ── Shared log rotation ───────────────────────────────────────────────────────
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+    tag: "{{.Name}}/{{.ID}}"
+
+services:
+
+  # ── Application ───────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-myapp}
+    restart: unless-stopped
+    init: true   # tini as PID 1 — proper signal forwarding + zombie reaping
+    stop_grace_period: 35s  # must exceed APP_SHUTDOWN_TIMEOUT (30s) — Docker kills at this deadline
+    ports:
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+    volumes:
+      - app-logs:/app/logs
+      - app-data:/app/data   # writable override for SQLite / local data (read_only: true blocks writes elsewhere)
+    env_file:
+      - .env   # all secrets and config come from here — copy .env.example to .env
+    environment:
+      # DATABASE_URL: read from .env first (external managed DB), fall back to local postgres container.
+      # Set DATABASE_URL in .env to use RDS, Neon, Supabase, etc. without touching this file.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-appuser}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-appdb}}
+      # REDIS_URL: same pattern — set in .env to use ElastiCache/Upstash, fallback to local container.
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # Build info — passed through from .env so /version and startup log work at runtime
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      GIT_SHA: ${GIT_SHA:-unknown}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${APP_PORT:-8000}/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    read_only: true   # root filesystem is immutable — a compromised process can't write malware to disk
+    tmpfs:
+      - /tmp:size=100m,mode=1777   # /tmp is writable in RAM only; mode=1777 = sticky-bit world-writable
+    security_opt:
+      - no-new-privileges:true          # prevents privilege escalation via setuid binaries
+      - seccomp=docker/seccomp.json     # explicit default profile — blocks ~44 dangerous syscalls
+      # Docker applies a default seccomp profile automatically, but committing the file makes it:
+      #   - Version-controlled (auditable — you can see exactly which syscalls are allowed)
+      #   - Portable (works even if the host's Docker default was modified)
+      #   - The starting point for a custom hardened profile (see CONTAINER_SECURITY_GAPS.md)
+      - apparmor=docker-default         # restricts filesystem paths + network access the process can touch
+    cap_drop:
+      - ALL   # drop all Linux capabilities — Python web service needs none
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536  # prevents fd exhaustion from slow clients or connection pool bugs
+    pids_limit: 256  # prevents fork-bomb from bug or compromised process
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false   # only wait if postgres profile is active
+      redis:
+        condition: service_healthy
+        required: false   # only wait if redis profile is active
+    logging: *default-logging
+    networks:
+      - app-network
+
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────────
+  # Separate container — never inside the app. Data survives app restarts.
+  # Enable with: docker compose --profile postgres up
+  # Credentials: set POSTGRES_PASSWORD in .env (never commit to git)
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-myapp}-postgres
+    restart: unless-stopped
+    profiles:
+      - postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    logging: *default-logging
+    networks:
+      - app-network
+
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  # Used for caching ([py:redis]) and background jobs ([py:arq]).
+  # Enable with: docker compose --profile redis up
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-myapp}-redis
+    restart: unless-stopped
+    profiles:
+      - redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    logging: *default-logging
+    networks:
+      - app-network
+
+
+  # ── Local LLM (Ollama, LM Studio, etc.) ──────────────────────────────────────
+  # This stack does NOT run a local LLM container. LLM providers are external —
+  # the deployer picks any provider via environment variables in .env:
+  #
+  #   LLM_MODEL=ollama/llama3.2          ← model string (litellm format)
+  #   LLM_BASE_URL=http://localhost:11434 ← point at your running Ollama instance
+  #
+  # Same variables work for cloud APIs — just set LLM_MODEL=openai/gpt-4o and
+  # OPENAI_API_KEY instead. No code changes needed. See .env.example for the
+  # full provider table.
+
+
+  # ── ARQ Worker ────────────────────────────────────────────────────────────────
+  # Background job worker — only needed when [py:arq] is used.
+  # Enable with: docker compose --profile worker --profile redis up
+  # Redis is required — always start both profiles together.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-myapp}-worker
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 35s
+    profiles:
+      - worker
+    command: ["python", "-m", "arq", "src.worker.WorkerSettings"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=100m,mode=1777
+    volumes:
+      - app-logs:/app/logs
+      - app-data:/app/data
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=docker/seccomp.json
+      - apparmor=docker-default
+    cap_drop:
+      - ALL
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    pids_limit: 256
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging: *default-logging
+    networks:
+      - app-network
+
+
+  # ── Jaeger (distributed tracing UI) ──────────────────────────────────────────
+  # Enable with: docker compose --profile observability up
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-myapp}-jaeger
+    restart: unless-stopped
+    profiles:
+      - observability
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # Jaeger UI — open http://localhost:16686
+      - "4317:4317"     # OTLP gRPC receiver
+    networks:
+      - app-network
+    logging: *default-logging
+
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  app-logs:
+  app-data:
+  postgres-data:
+  redis-data:

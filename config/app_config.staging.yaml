@@ -1,0 +1,13 @@
+# app_config.staging.yaml — staging overrides
+# Active when APP_ENV=staging
+
+# DATABASE_URL is not set here — it comes from the environment (DATABASE_URL in .env or
+# injected by the deployment platform). Staging always uses a managed external database.
+LOG_LEVEL: INFO
+MAX_CONNECTIONS: 15
+
+llm:
+  spend_cap:
+    daily_usd: 5.0
+    monthly_usd: 30.0
+    action: disable    # same as prod — staging should behave like prod

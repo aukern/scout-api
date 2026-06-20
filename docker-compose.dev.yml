@@ -1,0 +1,37 @@
+# Development overrides — use with:
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Changes vs prod:
+#   - Source code bind-mounted live (no rebuild needed for code changes)
+#   - APP_ENV=dev (verbose logging, console span exporter)
+#   - Jaeger always running (no --profile flag needed)
+#   - Lighter log rotation
+
+# ── Dev log rotation (lighter than prod) ─────────────────────────────────────
+x-logging: &dev-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build:
+      target: builder             # use build stage — includes dev tools + --reload
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./src:/app/src            # live reload: code changes visible immediately
+      - ./tests:/app/tests
+      - ./config:/app/config
+      - ./logs:/app/logs          # bind-mount in dev for easy local inspection
+      - ./data:/app/data
+    environment:
+      APP_ENV: dev
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+    logging: *dev-logging
+
+  redis:
+    logging: *dev-logging
+
+  jaeger:
+    profiles: []                  # override: always start Jaeger in dev
