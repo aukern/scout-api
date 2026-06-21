@@ -12,7 +12,7 @@ Slice numbers and issue numbers do **not** coincide.
 
 | Slice | Pattern | Status | Issue | Blocked by |
 |---|---|---|---|---|
-| 1. Manage collections | crud | open | [#17](https://github.com/aukern/scout-api/issues/17) | — |
+| 1. Manage collections | crud | done | [#17](https://github.com/aukern/scout-api/issues/17) | — |
 | 2. Ingest a source into a collection | ingest | open | [#18](https://github.com/aukern/scout-api/issues/18) | #17 |
 | 3. Process a source into searchable chunks | command | open | [#20](https://github.com/aukern/scout-api/issues/20) | #18 |
 | 4. Browse sources & their status | query | open | [#21](https://github.com/aukern/scout-api/issues/21) | #18 |
@@ -35,8 +35,9 @@ briefs(id, session_id→sessions, answer, citations)
 ---
 
 ## 1. Manage collections
+GitHub: closed
 
-Status: open
+Status: done
 **Issue:** [#17](https://github.com/aukern/scout-api/issues/17)
 
 ### What to build
