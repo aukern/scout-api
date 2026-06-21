@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     app_port: int = 8000
     log_level: str = "INFO"
 
+    # Object storage (S3 / localstack)
+    s3_bucket_name: str = ""
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str = ""  # Override for localstack: http://localhost:4566
+
+    # Background jobs (arq + Redis)
+    redis_url: str = ""
+    arq_concurrency: int = 10
+
 
 def get_settings() -> Settings:
     """Return application settings, reading from environment."""

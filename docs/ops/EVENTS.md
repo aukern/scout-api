@@ -7,3 +7,4 @@ venv/bin/python -m aukern_infra.tools.pipeline_cli gen-events-doc --project .
 
 | Event Type | Aggregate | Description | Payload Schema |
 |------------|-----------|-------------|----------------|
+| `source.ingested` | Source | Emitted on every Source create or refresh. `is_refresh=True` means old Chunks were deleted and a new processing job enqueued. | `{source_id: int, collection_id: int, origin: str, is_refresh: bool}` |

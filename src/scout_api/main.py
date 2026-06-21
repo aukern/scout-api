@@ -18,6 +18,7 @@ from scout_api.collections.router import router as collections_router
 from scout_api.config import get_settings
 from scout_api.db import create_pool
 from scout_api.health import router as health_router
+from scout_api.sources.router import router as sources_router
 
 
 @asynccontextmanager
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
 
     # Domain routers
     app.include_router(collections_router)
+    app.include_router(sources_router)
 
     return app
 

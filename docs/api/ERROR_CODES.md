@@ -22,6 +22,16 @@ All Scout API errors follow the same envelope format:
 
 ---
 
+## Sources
+
+| Code | HTTP | When |
+|---|---|---|
+| `SRC_NF_001` | 404 | POST /sources/url or /sources/file where collection_id does not exist |
+| `SRC_ING_001` | 500 | S3 upload or job enqueue failed after successful DB write |
+| `SRC_VAL_001` | 422 | Invalid origin — empty filename or other validation failure |
+
+---
+
 ## Standard HTTP errors
 
 | Status | When |

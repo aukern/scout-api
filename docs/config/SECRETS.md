@@ -10,6 +10,9 @@ Scout API uses environment variables for all secrets. No secrets are committed t
 |---|---|---|
 | `DATABASE_URL` | `postgresql://user:pass@host:5432/db` | Full Postgres DSN including password |
 | `POSTGRES_PASSWORD` | `changeme` | Postgres user password (Docker Compose only) |
+| `AWS_ACCESS_KEY_ID` | `AKIAIOSFODNN7EXAMPLE` | AWS credential for S3 uploads. Use IRSA role in production. |
+| `AWS_SECRET_ACCESS_KEY` | `wJalrXUtnFEMI/K7MDENGbPxRfiCY` | AWS secret key. Use IRSA role in production. |
+| `REDIS_URL` | `redis://localhost:6379` | Redis DSN for arq background job queue |
 
 ---
 
