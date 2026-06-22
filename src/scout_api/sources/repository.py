@@ -20,8 +20,12 @@ Chunk deletion:
 from __future__ import annotations
 
 import asyncpg
+from opentelemetry import trace
 
 from scout_api.sources.contracts import SourceRow, SourceStatus
+
+
+tracer = trace.get_tracer(__name__)
 
 
 class SourceRepository:
@@ -43,11 +47,16 @@ class SourceRepository:
         Returns:
             True if the collection exists, False otherwise.
         """
-        row = await self._conn.fetchrow(
-            "SELECT 1 FROM collections WHERE id = $1 LIMIT 1",
-            collection_id,
-        )
-        return row is not None
+        with tracer.start_as_current_span("source.db.collection_exists") as span:
+            span.set_attribute("db.system", "postgresql")
+            span.set_attribute("db.operation", "SELECT")
+            span.set_attribute("db.table", "collections")
+            span.set_attribute("collection_id", collection_id)
+            row = await self._conn.fetchrow(
+                "SELECT 1 FROM collections WHERE id = $1 LIMIT 1",
+                collection_id,
+            )
+            return row is not None
 
     async def get_by_origin(
         self,
@@ -63,18 +72,23 @@ class SourceRepository:
         Returns:
             SourceRow if found, None otherwise.
         """
-        row = await self._conn.fetchrow(
-            """
-            SELECT id, collection_id, origin, status, created_at, updated_at
-            FROM sources
-            WHERE collection_id = $1 AND origin = $2
-            """,
-            collection_id,
-            origin,
-        )
-        if row is None:
-            return None
-        return self._row_to_source(row)
+        with tracer.start_as_current_span("source.db.get_by_origin") as span:
+            span.set_attribute("db.system", "postgresql")
+            span.set_attribute("db.operation", "SELECT")
+            span.set_attribute("db.table", "sources")
+            span.set_attribute("collection_id", collection_id)
+            row = await self._conn.fetchrow(
+                """
+                SELECT id, collection_id, origin, status, created_at, updated_at
+                FROM sources
+                WHERE collection_id = $1 AND origin = $2
+                """,
+                collection_id,
+                origin,
+            )
+            if row is None:
+                return None
+            return self._row_to_source(row)
 
     async def upsert(
         self,
@@ -95,22 +109,28 @@ class SourceRepository:
             A tuple of (SourceRow, is_refresh) where is_refresh=True means
             the source already existed and was refreshed.
         """
-        # We detect refresh via xmax: xmax=0 means a fresh INSERT, non-zero means UPDATE.
-        row = await self._conn.fetchrow(
-            """
-            INSERT INTO sources (collection_id, origin, status, created_at, updated_at)
-            VALUES ($1, $2, 'pending', NOW(), NOW())
-            ON CONFLICT (collection_id, origin) DO UPDATE
-                SET status     = 'pending',
-                    updated_at = NOW()
-            RETURNING id, collection_id, origin, status, created_at, updated_at,
-                      (xmax <> 0) AS was_updated
-            """,
-            collection_id,
-            origin,
-        )
-        is_refresh = bool(row["was_updated"])
-        return self._row_to_source(row), is_refresh
+        with tracer.start_as_current_span("source.db.upsert") as span:
+            span.set_attribute("db.system", "postgresql")
+            span.set_attribute("db.operation", "INSERT ... ON CONFLICT DO UPDATE")
+            span.set_attribute("db.table", "sources")
+            span.set_attribute("collection_id", collection_id)
+            # We detect refresh via xmax: xmax=0 means a fresh INSERT, non-zero means UPDATE.
+            row = await self._conn.fetchrow(
+                """
+                INSERT INTO sources (collection_id, origin, status, created_at, updated_at)
+                VALUES ($1, $2, 'pending', NOW(), NOW())
+                ON CONFLICT (collection_id, origin) DO UPDATE
+                    SET status     = 'pending',
+                        updated_at = NOW()
+                RETURNING id, collection_id, origin, status, created_at, updated_at,
+                          (xmax <> 0) AS was_updated
+                """,
+                collection_id,
+                origin,
+            )
+            is_refresh = bool(row["was_updated"])
+            span.set_attribute("is_refresh", is_refresh)
+            return self._row_to_source(row), is_refresh
 
     async def delete_chunks(self, source_id: int) -> int:
         """Delete all chunks belonging to a source.
@@ -123,12 +143,19 @@ class SourceRepository:
         Returns:
             The number of chunk rows deleted.
         """
-        result = await self._conn.execute(
-            "DELETE FROM chunks WHERE source_id = $1",
-            source_id,
-        )
-        # asyncpg returns "DELETE N" — extract the count
-        return int(result.split()[-1])
+        with tracer.start_as_current_span("source.db.delete_chunks") as span:
+            span.set_attribute("db.system", "postgresql")
+            span.set_attribute("db.operation", "DELETE")
+            span.set_attribute("db.table", "chunks")
+            span.set_attribute("source_id", source_id)
+            result = await self._conn.execute(
+                "DELETE FROM chunks WHERE source_id = $1",
+                source_id,
+            )
+            # asyncpg returns "DELETE N" — extract the count
+            deleted = int(result.split()[-1])
+            span.set_attribute("chunks_deleted", deleted)
+            return deleted
 
     @staticmethod
     def _row_to_source(row: asyncpg.Record) -> SourceRow:

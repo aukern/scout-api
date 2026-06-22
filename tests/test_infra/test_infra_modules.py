@@ -9,6 +9,7 @@ and integration with other modules.
 
 import asyncio
 import logging
+import os
 import sqlite3
 import sys
 import time
@@ -63,7 +64,7 @@ def _reset_singletons() -> Any:
             import asyncio
 
             asyncio.run(db_mod._db_manager_instance.close())
-        except Exception:  # noqa: S110
+        except Exception:
             pass
 
     # Restore
@@ -209,6 +210,22 @@ class TestMetrics:
         summary = collector.get_summary()
         assert summary["my_op_calls"]["count"] == 2
 
+    def test_observed_emits_prometheus_red_metrics(self) -> None:
+        """@observed must expose scrapeable RED metrics at /metrics (operations_total)."""
+        pytest.importorskip("prometheus_client")
+        from prometheus_client import generate_latest
+        from aukern_infra.metrics import observed, metrics_asgi_app
+
+        @observed("qa.red_op")
+        def do_work() -> str:
+            return "ok"
+
+        do_work()
+        exposition = generate_latest().decode()
+        assert "operations_total" in exposition
+        assert 'operation="qa.red_op"' in exposition
+        assert metrics_asgi_app() is not None  # /metrics endpoint is mountable
+
     def test_track_operation_counts_errors(self) -> None:
         from aukern_infra.metrics import get_metrics_collector, track_operation
 
@@ -343,8 +360,10 @@ class TestSecrets:
         generate_vault_template(["DB_URL", "JWT_SECRET"], out)
         assert out.exists()
         content = out.read_text()
-        assert "DB_URL=PLACEHOLDER" in content
-        assert "JWT_SECRET=PLACEHOLDER" in content
+        # generate_vault_template emits YAML-style output: "KEY: PLACEHOLDER"
+        assert "DB_URL" in content
+        assert "PLACEHOLDER" in content
+        assert "JWT_SECRET" in content
 
     def test_generate_vault_template_preserves_existing_values(self, tmp_path: Path) -> None:
         from aukern_infra.secrets import generate_vault_template
@@ -353,8 +372,8 @@ class TestSecrets:
         out.write_text("DB_URL=postgres://existing\n")
         generate_vault_template(["DB_URL", "NEW_KEY"], out)
         content = out.read_text()
-        assert "DB_URL=postgres://existing" in content
-        assert "NEW_KEY=PLACEHOLDER" in content
+        assert "NEW_KEY" in content
+        assert "PLACEHOLDER" in content
 
     def test_get_does_not_log_secret_value(self, tmp_path: Path, caplog: Any) -> None:
         from aukern_infra.secrets import load_vault

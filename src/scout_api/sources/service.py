@@ -35,6 +35,7 @@ import os
 from typing import Any
 
 import structlog
+from opentelemetry import trace
 
 from scout_api.sources.contracts import SourceRow
 from scout_api.sources.errors import (
@@ -46,6 +47,7 @@ from scout_api.sources.repository import SourceRepository
 from scout_api.sources.storage import AbstractStorageAdapter
 
 logger: structlog.BoundLogger = structlog.get_logger(__name__)
+tracer = trace.get_tracer(__name__)
 
 # Job name recognised by the arq worker (slice 3)
 PROCESS_SOURCE_JOB = "process_source"
@@ -145,29 +147,38 @@ class IngestService:
             CollectionNotFoundError: If the collection does not exist.
             SourceIngestionError: If job enqueue fails.
         """
-        await self._assert_collection_exists(collection_id)
-        origin = _origin_for_url(url)
-        source, is_refresh = await self._repo.upsert(collection_id, origin)
-        if is_refresh:
-            deleted = await self._repo.delete_chunks(source.id)
-            logger.info(
-                "source.refresh",
-                source_id=source.id,
-                collection_id=collection_id,
-                origin=origin,
-                chunks_deleted=deleted,
-            )
-        else:
-            logger.info(
-                "source.created",
-                source_id=source.id,
-                collection_id=collection_id,
-                origin=origin,
-            )
-
-        await self._enqueue(source.id)
-        self._emit_event(source, is_refresh)
-        return source
+        with tracer.start_as_current_span("source.ingest_url") as span:
+            span.set_attribute("slice", "sources")
+            span.set_attribute("collection_id", collection_id)
+            try:
+                await self._assert_collection_exists(collection_id)
+                origin = _origin_for_url(url)
+                source, is_refresh = await self._repo.upsert(collection_id, origin)
+                if is_refresh:
+                    deleted = await self._repo.delete_chunks(source.id)
+                    logger.info(
+                        "source.refresh",
+                        source_id=source.id,
+                        collection_id=collection_id,
+                        origin=origin,
+                        chunks_deleted=deleted,
+                    )
+                else:
+                    logger.info(
+                        "source.created",
+                        source_id=source.id,
+                        collection_id=collection_id,
+                        origin=origin,
+                    )
+                span.set_attribute("source_id", source.id)
+                span.set_attribute("is_refresh", is_refresh)
+                await self._enqueue(source.id)
+                self._emit_event(source, is_refresh)
+                return source
+            except Exception as exc:
+                span.record_exception(exc)
+                span.set_status(trace.StatusCode.ERROR, str(exc))
+                raise
 
     async def ingest_file(
         self,
@@ -197,52 +208,64 @@ class IngestService:
             CollectionNotFoundError: If the collection does not exist.
             SourceIngestionError: If S3 upload or job enqueue fails.
         """
-        await self._assert_collection_exists(collection_id)
+        with tracer.start_as_current_span("source.ingest_file") as span:
+            span.set_attribute("slice", "sources")
+            span.set_attribute("collection_id", collection_id)
+            span.set_attribute("filename", filename)
+            try:
+                await self._assert_collection_exists(collection_id)
 
-        # Sanitise the filename — strip path separators to prevent path traversal
-        # in S3 keys. Use only the base name component.
-        safe_filename = os.path.basename(filename.replace("\\", "/"))
-        if not safe_filename:
-            safe_filename = "upload"
+                # Sanitise the filename — strip path separators to prevent path traversal
+                # in S3 keys. Use only the base name component.
+                safe_filename = os.path.basename(filename.replace("\\", "/"))
+                if not safe_filename:
+                    safe_filename = "upload"
 
-        # Use a hash-based placeholder origin to detect existing sources
-        # before we have a source_id. The hash is the stable component.
-        name_hash = hashlib.sha256(safe_filename.encode()).hexdigest()[:16]
-        placeholder_origin = f"file://{collection_id}/{name_hash}/{safe_filename}"
+                # Use a hash-based placeholder origin to detect existing sources
+                # before we have a source_id. The hash is the stable component.
+                name_hash = hashlib.sha256(safe_filename.encode()).hexdigest()[:16]
+                placeholder_origin = f"file://{collection_id}/{name_hash}/{safe_filename}"
 
-        # Upsert with placeholder to get/create the source_id
-        source, is_refresh = await self._repo.upsert(collection_id, placeholder_origin)
-        if is_refresh:
-            deleted = await self._repo.delete_chunks(source.id)
-            logger.info(
-                "source.refresh",
-                source_id=source.id,
-                collection_id=collection_id,
-                filename=filename,
-                chunks_deleted=deleted,
-            )
+                # Upsert with placeholder to get/create the source_id
+                source, is_refresh = await self._repo.upsert(collection_id, placeholder_origin)
+                if is_refresh:
+                    deleted = await self._repo.delete_chunks(source.id)
+                    logger.info(
+                        "source.refresh",
+                        source_id=source.id,
+                        collection_id=collection_id,
+                        filename=filename,
+                        chunks_deleted=deleted,
+                    )
 
-        # Upload to object storage
-        s3_key = _s3_key(collection_id, source.id, safe_filename)
-        try:
-            async with asyncio.timeout(10):
-                await self._storage.upload(s3_key, file_bytes, content_type)
-        except TimeoutError as exc:
-            raise SourceIngestionError("storage upload timed out") from exc
-        except Exception as exc:
-            raise SourceIngestionError(f"storage upload failed: {exc}") from exc
+                # Upload to object storage
+                s3_key = _s3_key(collection_id, source.id, safe_filename)
+                try:
+                    async with asyncio.timeout(10):
+                        await self._storage.upload(s3_key, file_bytes, content_type)
+                except TimeoutError as exc:
+                    raise SourceIngestionError("storage upload timed out") from exc
+                except Exception as exc:
+                    raise SourceIngestionError(f"storage upload failed: {exc}") from exc
 
-        logger.info(
-            "source.uploaded",
-            source_id=source.id,
-            collection_id=collection_id,
-            s3_key=s3_key,
-            filename=safe_filename,
-        )
+                logger.info(
+                    "source.uploaded",
+                    source_id=source.id,
+                    collection_id=collection_id,
+                    s3_key=s3_key,
+                    filename=safe_filename,
+                )
 
-        await self._enqueue(source.id)
-        self._emit_event(source, is_refresh)
-        return source
+                span.set_attribute("source_id", source.id)
+                span.set_attribute("is_refresh", is_refresh)
+                span.set_attribute("s3_key", _s3_key(collection_id, source.id, safe_filename))
+                await self._enqueue(source.id)
+                self._emit_event(source, is_refresh)
+                return source
+            except Exception as exc:
+                span.record_exception(exc)
+                span.set_status(trace.StatusCode.ERROR, str(exc))
+                raise
 
     # ------------------------------------------------------------------
     # Internal helpers
