@@ -66,6 +66,15 @@ else
   _fail "tests/test_infra/ missing — run: pipeline gen-infra-tests --project ."
 fi
 
+# ── RED Metrics wiring (@observed + /metrics) ────────────────────────────────
+echo ""
+echo "── RED Metrics (@observed + /metrics) ──"
+if "$VENV/pipeline" check-metrics --project . 2>&1; then
+  _ok "metrics wired"
+else
+  _fail "RED metrics missing — every public *Service method needs @observed(\"...\") and main.py must mount /metrics"
+fi
+
 # ── Coverage ─────────────────────────────────────────────────────────────────
 echo ""
 echo "── Coverage Gate (≥90%) ──"

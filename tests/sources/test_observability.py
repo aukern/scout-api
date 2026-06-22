@@ -240,3 +240,64 @@ def test_ingest_service_spans_record_exception_on_error() -> None:
         "IngestService must call span.record_exception in error paths"
     )
     assert "set_status" in source, "IngestService must set span status on error"
+
+
+# ---------------------------------------------------------------------------
+# Prometheus RED metrics — @observed counter increments
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_observed_ingest_url_increments_prometheus_counter() -> None:
+    """@observed("sources.ingest_url") must increment operations_total in the Prometheus registry.
+
+    Verifies that the decorator is wired correctly — not just present in source code.
+    Uses prometheus_client.generate_latest() to read the in-process registry after
+    calling ingest_url, matching the pattern in test_infra_modules::test_observed_emits_prometheus_red_metrics.
+    """
+    pytest.importorskip("prometheus_client")
+    from prometheus_client import generate_latest
+
+    storage = InMemoryStorageAdapter()
+    queue = InMemoryQueueAdapter()
+    repo = _make_repo(is_refresh=False)
+    service = IngestService(repo=repo, storage=storage, queue=queue)
+
+    await service.ingest_url(collection_id=10, url="https://example.com/red-metrics-test")
+
+    exposition = generate_latest().decode()
+    assert "operations_total" in exposition, (
+        "Prometheus registry must contain operations_total counter after ingest_url call"
+    )
+    assert 'operation="sources.ingest_url"' in exposition, (
+        "operations_total must carry operation=\"sources.ingest_url\" label — "
+        "@observed decorator not correctly wired on ingest_url"
+    )
+
+
+@pytest.mark.asyncio
+async def test_observed_ingest_file_increments_prometheus_counter() -> None:
+    """@observed("sources.ingest_file") must increment operations_total in the Prometheus registry."""
+    pytest.importorskip("prometheus_client")
+    from prometheus_client import generate_latest
+
+    storage = InMemoryStorageAdapter()
+    queue = InMemoryQueueAdapter()
+    repo = _make_repo(is_refresh=False)
+    service = IngestService(repo=repo, storage=storage, queue=queue)
+
+    await service.ingest_file(
+        collection_id=10,
+        filename="red_metrics.pdf",
+        file_bytes=b"pdf",
+        content_type="application/pdf",
+    )
+
+    exposition = generate_latest().decode()
+    assert "operations_total" in exposition, (
+        "Prometheus registry must contain operations_total counter after ingest_file call"
+    )
+    assert 'operation="sources.ingest_file"' in exposition, (
+        "operations_total must carry operation=\"sources.ingest_file\" label — "
+        "@observed decorator not correctly wired on ingest_file"
+    )
