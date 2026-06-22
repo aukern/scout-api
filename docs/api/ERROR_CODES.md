@@ -32,6 +32,15 @@ All Scout API errors follow the same envelope format:
 
 ---
 
+## Sessions
+
+| Code | HTTP | When |
+|---|---|---|
+| `SES_NF_001` | 404 | GET or DELETE /sessions/{id} where session does not exist |
+| `SES_NF_002` | 404 | POST /sessions where collection_id does not exist |
+
+---
+
 ## Standard HTTP errors
 
 | Status | When |

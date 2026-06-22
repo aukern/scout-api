@@ -253,7 +253,8 @@ async def test_observed_ingest_url_increments_prometheus_counter() -> None:
 
     Verifies that the decorator is wired correctly — not just present in source code.
     Uses prometheus_client.generate_latest() to read the in-process registry after
-    calling ingest_url, matching the pattern in test_infra_modules::test_observed_emits_prometheus_red_metrics.
+    calling ingest_url, matching the pattern in
+    test_infra_modules::test_observed_emits_prometheus_red_metrics.
     """
     pytest.importorskip("prometheus_client")
     from prometheus_client import generate_latest
@@ -270,14 +271,14 @@ async def test_observed_ingest_url_increments_prometheus_counter() -> None:
         "Prometheus registry must contain operations_total counter after ingest_url call"
     )
     assert 'operation="sources.ingest_url"' in exposition, (
-        "operations_total must carry operation=\"sources.ingest_url\" label — "
+        'operations_total must carry operation="sources.ingest_url" label — '
         "@observed decorator not correctly wired on ingest_url"
     )
 
 
 @pytest.mark.asyncio
 async def test_observed_ingest_file_increments_prometheus_counter() -> None:
-    """@observed("sources.ingest_file") must increment operations_total in the Prometheus registry."""
+    """@observed("sources.ingest_file") must increment operations_total."""
     pytest.importorskip("prometheus_client")
     from prometheus_client import generate_latest
 
@@ -298,6 +299,6 @@ async def test_observed_ingest_file_increments_prometheus_counter() -> None:
         "Prometheus registry must contain operations_total counter after ingest_file call"
     )
     assert 'operation="sources.ingest_file"' in exposition, (
-        "operations_total must carry operation=\"sources.ingest_file\" label — "
+        'operations_total must carry operation="sources.ingest_file" label — '
         "@observed decorator not correctly wired on ingest_file"
     )

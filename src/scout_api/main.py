@@ -21,6 +21,7 @@ from scout_api.collections.router import router as collections_router
 from scout_api.config import get_settings
 from scout_api.db import create_pool
 from scout_api.health import router as health_router
+from scout_api.sessions.router import router as sessions_router
 from scout_api.sources.router import router as sources_router
 
 
@@ -82,6 +83,7 @@ def create_app() -> FastAPI:
     # Domain routers
     app.include_router(collections_router)
     app.include_router(sources_router)
+    app.include_router(sessions_router)
 
     # Prometheus RED metrics scrape endpoint
     app.mount("/metrics", metrics_asgi_app())

@@ -63,7 +63,7 @@ def _reset_singletons() -> Any:
             import asyncio
 
             asyncio.run(db_mod._db_manager_instance.close())
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     # Restore
