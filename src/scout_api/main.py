@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from aukern_infra.metrics import metrics_asgi_app
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -81,6 +82,9 @@ def create_app() -> FastAPI:
     # Domain routers
     app.include_router(collections_router)
     app.include_router(sources_router)
+
+    # Prometheus RED metrics scrape endpoint
+    app.mount("/metrics", metrics_asgi_app())
 
     return app
 

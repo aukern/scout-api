@@ -35,6 +35,7 @@ import os
 from typing import Any
 
 import structlog
+from aukern_infra.metrics import observed
 from opentelemetry import trace
 
 from scout_api.sources.contracts import SourceRow
@@ -126,6 +127,7 @@ class IngestService:
         self._queue = queue
         self._emit = event_emit or (lambda *a, **kw: None)
 
+    @observed("sources.ingest_url")
     async def ingest_url(
         self,
         collection_id: int,
@@ -180,6 +182,7 @@ class IngestService:
                 span.set_status(trace.StatusCode.ERROR, str(exc))
                 raise
 
+    @observed("sources.ingest_file")
     async def ingest_file(
         self,
         collection_id: int,
