@@ -9,7 +9,6 @@ and integration with other modules.
 
 import asyncio
 import logging
-import os
 import sqlite3
 import sys
 import time
@@ -213,8 +212,8 @@ class TestMetrics:
     def test_observed_emits_prometheus_red_metrics(self) -> None:
         """@observed must expose scrapeable RED metrics at /metrics (operations_total)."""
         pytest.importorskip("prometheus_client")
+        from aukern_infra.metrics import metrics_asgi_app, observed
         from prometheus_client import generate_latest
-        from aukern_infra.metrics import observed, metrics_asgi_app
 
         @observed("qa.red_op")
         def do_work() -> str:

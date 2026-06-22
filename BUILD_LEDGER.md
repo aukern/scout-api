@@ -7,8 +7,8 @@ and re-apply only what changed.
 
 | Slice | Components recorded | Lock fingerprint |
 |------:|--------------------:|------------------|
-| 17 | 211 | `2830a523`  ← changed since build |
-| 18 | 211 | `98373e53` |
+| 17 | 211 | `e7442f7a` |
+| 18 | 211 | `98373e53`  ← changed since build |
 
-Pipeline current lock fingerprint: `98373e53`
+Pipeline current lock fingerprint: `e7442f7a`
 (A slice whose fingerprint differs from current has components that changed since it was built.)

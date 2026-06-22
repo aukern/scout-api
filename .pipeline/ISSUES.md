@@ -13,7 +13,7 @@ Slice numbers and issue numbers do **not** coincide.
 | Slice | Pattern | Status | Issue | Blocked by |
 |---|---|---|---|---|
 | 1. Manage collections | crud | done | [#17](https://github.com/aukern/scout-api/issues/17) | — |
-| 2. Ingest a source into a collection | ingest | open | [#18](https://github.com/aukern/scout-api/issues/18) | #17 |
+| 2. Ingest a source into a collection | ingest | done | [#18](https://github.com/aukern/scout-api/issues/18) | #17 |
 | 3. Process a source into searchable chunks | command | open | [#20](https://github.com/aukern/scout-api/issues/20) | #18 |
 | 4. Browse sources & their status | query | open | [#21](https://github.com/aukern/scout-api/issues/21) | #18 |
 | 5. Semantic search within a collection | query | open | [#23](https://github.com/aukern/scout-api/issues/23) | #20 |
@@ -62,8 +62,9 @@ None — can start immediately.
 ---
 
 ## 2. Ingest a source into a collection
+GitHub: SYNC-FAILED — may still be open on GitHub
 
-Status: open
+Status: done
 **Issue:** [#18](https://github.com/aukern/scout-api/issues/18)
 
 ### What to build
