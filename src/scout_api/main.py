@@ -65,10 +65,7 @@ def create_app() -> FastAPI:
         field = " -> ".join(str(loc) for loc in first.get("loc", [])) if first else "request"
         msg = first.get("msg", "Invalid request") if first else "Invalid request"
         # Strip non-serializable ctx (Pydantic v2 includes the raw Exception in ctx.error)
-        safe_detail = [
-            {k: v for k, v in err.items() if k not in ("ctx", "url")}
-            for err in errors
-        ]
+        safe_detail = [{k: v for k, v in err.items() if k not in ("ctx", "url")} for err in errors]
         return JSONResponse(
             status_code=422,
             content={

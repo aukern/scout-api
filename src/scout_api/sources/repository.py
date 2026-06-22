@@ -24,7 +24,6 @@ from opentelemetry import trace
 
 from scout_api.sources.contracts import SourceRow, SourceStatus
 
-
 tracer = trace.get_tracer(__name__)
 
 

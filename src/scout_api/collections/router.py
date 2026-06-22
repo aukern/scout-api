@@ -11,6 +11,7 @@ Error responses use the standard envelope: {"error": {"code": "...", "message": 
 
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
@@ -25,6 +26,8 @@ from scout_api.collections.models import (
 )
 from scout_api.collections.repository import CollectionRepository
 from scout_api.db import get_pool
+
+logger: structlog.BoundLogger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -56,8 +59,18 @@ async def create_collection(
         try:
             collection = await repo.create(body.name)
         except CollectionAlreadyExistsError as exc:
+            logger.warning(
+                "collection.already_exists",
+                name=body.name,
+                code=exc.code,
+            )
             return exc.to_response()
 
+    logger.info(
+        "collection.created",
+        collection_id=collection.id,
+        name=collection.name,
+    )
     response.headers["Location"] = f"/collections/{collection.name}"
     return JSONResponse(
         status_code=201,
@@ -107,6 +120,12 @@ async def delete_collection(name: str, request: Request) -> Response:
         try:
             await repo.delete(name)
         except CollectionNotFoundError as exc:
+            logger.info(
+                "collection.not_found",
+                name=name,
+                code=exc.code,
+            )
             return exc.to_response()
 
+    logger.info("collection.deleted", name=name)
     return Response(status_code=204)
