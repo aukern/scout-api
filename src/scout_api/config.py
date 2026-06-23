@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     redis_url: str = ""
     arq_concurrency: int = 10
 
+    # Embedding model (used by the processing worker)
+    embedding_model: str = "text-embedding-ada-002"
+    ollama_api_base: str = ""  # e.g. http://localhost:11434 for local Ollama
+
+    # Chunking parameters (token-aware sliding window)
+    chunk_token_size: int = 512
+    chunk_overlap_tokens: int = 64
+
 
 def get_settings() -> Settings:
     """Return application settings, reading from environment."""

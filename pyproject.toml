@@ -36,6 +36,10 @@ dependencies = [
     # "arq>=0.26",
     # ── [py:redis] overlay — arq uses Redis as broker ────────────────────────
     # "redis>=5.0",
+    # ── [py:litellm] overlay — litellm lazy-imported in Embedder ─────────────
+    # "litellm>=1.40",
+    # ── [py:vector] overlay — tiktoken lazy-imported in Chunker ──────────────
+    # "tiktoken>=0.7",
     # ── File upload (multipart/form-data) ────────────────────────────────────
     "python-multipart>=0.0.9",
     # ── [py:mcp] overlay — MCP server tools ──────────────────────────────────

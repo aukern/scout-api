@@ -1,0 +1,37 @@
+-- 003_processing_columns.sql
+-- Adds processing-related columns to support slice 20 (Process a source).
+--
+-- Changes:
+--   1. sources.failed_reason TEXT  — stores the error message when a source
+--      fails processing. Nullable; NULL when status is not 'failed'.
+--      Enables failure diagnosis via the browse-sources API without log grep.
+--
+--   2. chunks.embedding column dimension note:
+--      The initial schema hard-coded vector(1536). This is acceptable for
+--      text-embedding-ada-002 (OpenAI's default, 1536 dimensions).
+--
+--      If you switch to a different model (e.g. ollama/nomic-embed-text = 768):
+--        a. Update EMBEDDING_MODEL in .env
+--        b. Run the ALTER statements below (destructive — drops all existing chunks).
+--           Chunks are derived data and can always be regenerated from source content.
+--
+-- ── 1. Add failed_reason to sources ───────────────────────────────────────────
+
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS failed_reason TEXT;
+
+-- ── 2. (Manual) Update embedding dimension when switching models ───────────────
+--
+-- Replace N below with your model's output dimension:
+--   text-embedding-ada-002       → 1536
+--   ollama/nomic-embed-text      →  768
+--   ollama/mxbai-embed-large     → 1024
+--   text-embedding-3-small       → 1536 (reducible)
+--   text-embedding-3-large       → 3072 (reducible)
+--
+-- WARNING: This drops ALL existing chunk embeddings. Run only when no chunks
+--          need to be preserved, or after a full re-processing run.
+--
+-- ALTER TABLE chunks DROP COLUMN IF EXISTS embedding;
+-- ALTER TABLE chunks ADD COLUMN embedding vector(N);
+--
+-- After running: restart the worker so the new dimension is probed at startup.

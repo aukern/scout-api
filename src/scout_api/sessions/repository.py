@@ -18,6 +18,7 @@ from typing import Literal
 
 import asyncpg
 import structlog
+from aukern_infra.metrics import observed
 from opentelemetry import trace
 
 from scout_api.sessions.contracts import SessionActivityRow, SessionRow
@@ -42,6 +43,7 @@ class SessionRepository:
     def __init__(self, conn: asyncpg.Connection | asyncpg.Pool) -> None:
         self._conn = conn
 
+    @observed("sessions.open")  # type: ignore[untyped-decorator]
     async def open(self, collection_id: int, conn: asyncpg.Connection) -> SessionRow:
         """Open (INSERT) a new session scoped to the given collection.
 
@@ -98,6 +100,7 @@ class SessionRepository:
             )
             return result
 
+    @observed("sessions.get")  # type: ignore[untyped-decorator]
     async def get(self, session_id: int, conn: asyncpg.Connection) -> SessionRow | None:
         """Fetch a session row by id.
 
@@ -130,6 +133,7 @@ class SessionRepository:
                 created_at=row["created_at"],
             )
 
+    @observed("sessions.list_all")  # type: ignore[untyped-decorator]
     async def list_all(
         self,
         collection_id: int | None,
@@ -172,6 +176,7 @@ class SessionRepository:
             span.set_attribute("sessions.count", len(result))
             return result
 
+    @observed("sessions.delete")  # type: ignore[untyped-decorator]
     async def delete(self, session_id: int, conn: asyncpg.Connection) -> bool:
         """Delete a session row by id.
 
@@ -214,6 +219,7 @@ class SessionActivityRepository:
     The caller passes the connection — this repository does not acquire its own.
     """
 
+    @observed("sessions.activity.record")  # type: ignore[untyped-decorator]
     async def record(
         self,
         session_id: int,
@@ -263,6 +269,7 @@ class SessionActivityRepository:
             span.set_attribute("activity.id", result.id)
             return result
 
+    @observed("sessions.activity.list_for_session")  # type: ignore[untyped-decorator]
     async def list_for_session(
         self,
         session_id: int,

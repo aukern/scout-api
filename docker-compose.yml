@@ -77,12 +77,12 @@ services:
       nofile:
         soft: 65536
         hard: 65536  # prevents fd exhaustion from slow clients or connection pool bugs
-    pids_limit: 256  # prevents fork-bomb from bug or compromised process
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 1G
+          pids: 256  # prevents fork-bomb from bug or compromised process
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -205,12 +205,12 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-    pids_limit: 256
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 1G
+          pids: 256
     logging: *default-logging
     networks:
       - app-network

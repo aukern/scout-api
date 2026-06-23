@@ -11,7 +11,7 @@ modules (repository.py, service.py) may change without affecting callers.
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Protocol
 
@@ -48,6 +48,8 @@ class SourceRow:
         status: Current lifecycle state.
         created_at: Timestamp of initial creation (UTC).
         updated_at: Timestamp of last status change or re-ingest (UTC).
+        failed_reason: Human-readable failure reason; None when status is not
+            ``failed``. Stored in the DB for observability — no log grep needed.
     """
 
     id: int
@@ -56,6 +58,31 @@ class SourceRow:
     status: SourceStatus
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    failed_reason: str | None = field(default=None)
+
+
+# ---------------------------------------------------------------------------
+# Domain value: ChunkRow
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ChunkRow:
+    """Immutable snapshot of a row from the chunks table.
+
+    Attributes:
+        id: Auto-increment primary key.
+        source_id: FK to the owning source.
+        content: Text content of this chunk.
+        position: 0-based order index within the source.
+        embedding: Float vector from the embedding model; None before embedding.
+    """
+
+    id: int
+    source_id: int
+    content: str
+    position: int
+    embedding: list[float] | None = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -84,3 +111,34 @@ class SourceRepositoryProtocol(Protocol):
     ) -> tuple[SourceRow, bool]: ...
 
     async def delete_chunks(self, source_id: int) -> int: ...
+
+
+# ---------------------------------------------------------------------------
+# Processing Repository Protocol (worker-side operations)
+# ---------------------------------------------------------------------------
+
+
+class ProcessingRepositoryProtocol(Protocol):
+    """Protocol for the worker-side processing repository.
+
+    Handles status transitions and chunk persistence during source processing.
+    Other slices (e.g. search) may depend on this protocol to read chunks.
+    """
+
+    async def get_source(self, source_id: int) -> SourceRow | None: ...
+
+    async def set_processing(self, source_id: int) -> SourceRow: ...
+
+    async def set_ready(self, source_id: int) -> SourceRow: ...
+
+    async def set_failed(self, source_id: int, reason: str) -> SourceRow: ...
+
+    async def delete_chunks(self, source_id: int) -> int: ...
+
+    async def insert_chunk(
+        self,
+        source_id: int,
+        content: str,
+        position: int,
+        embedding: list[float],
+    ) -> int: ...
