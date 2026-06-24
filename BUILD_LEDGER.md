@@ -11,7 +11,8 @@ and re-apply only what changed.
 | 18 | 221 | `653f05f9`  ← changed since build |
 | 19 | 221 | `653f05f9`  ← changed since build |
 | 20 | 221 | `653f05f9`  ← changed since build |
-| 21 | 222 | `768aea40` |
+| 21 | 222 | `768aea40`  ← changed since build |
+| 22 | 222 | `97810628` |
 
-Pipeline current lock fingerprint: `768aea40`
+Pipeline current lock fingerprint: `97810628`
 (A slice whose fingerprint differs from current has components that changed since it was built.)
