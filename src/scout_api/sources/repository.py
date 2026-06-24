@@ -156,9 +156,85 @@ class SourceRepository:
             span.set_attribute("chunks_deleted", deleted)
             return deleted
 
+    async def list_by_collection(self, collection_id: int) -> list[SourceRow]:
+        """Return all sources in a collection, ordered oldest-first.
+
+        Args:
+            collection_id: The owning collection primary key.
+
+        Returns:
+            A list of SourceRow snapshots, ordered by created_at ASC.
+            Returns an empty list if the collection has no sources.
+        """
+        with tracer.start_as_current_span("source.db.list_by_collection") as span:
+            span.set_attribute("db.system", "postgresql")
+            span.set_attribute("db.operation", "SELECT")
+            span.set_attribute("db.table", "sources")
+            span.set_attribute("collection_id", collection_id)
+            rows = await self._conn.fetch(
+                """
+                SELECT id, collection_id, origin, status,
+                       created_at, updated_at, failed_reason
+                FROM sources
+                WHERE collection_id = $1
+                ORDER BY created_at ASC
+                """,
+                collection_id,
+            )
+            span.set_attribute("count", len(rows))
+            return [self._row_to_source(row) for row in rows]
+
+    async def get_by_id(
+        self,
+        source_id: int,
+        collection_id: int,
+    ) -> SourceRow | None:
+        """Fetch a single source by primary key, scoped to a collection.
+
+        The ``collection_id`` filter is enforced at the SQL level so that a
+        source belonging to collection 5 returns ``None`` when fetched via
+        collection 7 — preventing cross-collection data leakage.
+
+        Args:
+            source_id: The source primary key.
+            collection_id: The collection this source must belong to.
+
+        Returns:
+            SourceRow if found in the given collection, None otherwise.
+        """
+        with tracer.start_as_current_span("source.db.get_by_id") as span:
+            span.set_attribute("db.system", "postgresql")
+            span.set_attribute("db.operation", "SELECT")
+            span.set_attribute("db.table", "sources")
+            span.set_attribute("source_id", source_id)
+            span.set_attribute("collection_id", collection_id)
+            row = await self._conn.fetchrow(
+                """
+                SELECT id, collection_id, origin, status,
+                       created_at, updated_at, failed_reason
+                FROM sources
+                WHERE id = $1 AND collection_id = $2
+                """,
+                source_id,
+                collection_id,
+            )
+            if row is None:
+                return None
+            return self._row_to_source(row)
+
     @staticmethod
     def _row_to_source(row: asyncpg.Record) -> SourceRow:
-        """Map an asyncpg Record to a SourceRow dataclass."""
+        """Map an asyncpg Record to a SourceRow dataclass.
+
+        Handles both legacy rows (no failed_reason column) and current rows.
+        """
+        # Use .get() style access — some callers pass rows without failed_reason
+        # (e.g. upsert RETURNING clause which does not select it).
+        try:
+            failed_reason: str | None = row["failed_reason"]
+        except (KeyError, IndexError):
+            failed_reason = None
+
         return SourceRow(
             id=row["id"],
             collection_id=row["collection_id"],
@@ -166,4 +242,5 @@ class SourceRepository:
             status=SourceStatus(row["status"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            failed_reason=failed_reason,
         )

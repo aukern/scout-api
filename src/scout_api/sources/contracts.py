@@ -2,7 +2,7 @@
 
 These are the types and protocols imported by other slices:
   - Slice 3 (Process a source) needs SourceRow and SourceStatus
-  - Slice 4 (Browse sources) needs SourceRow
+  - Slice 21 (Browse sources) needs SourceRow and SourceRepositoryProtocol
 
 Importing from contracts.py guarantees stability — the internal implementation
 modules (repository.py, service.py) may change without affecting callers.
@@ -111,6 +111,14 @@ class SourceRepositoryProtocol(Protocol):
     ) -> tuple[SourceRow, bool]: ...
 
     async def delete_chunks(self, source_id: int) -> int: ...
+
+    async def list_by_collection(self, collection_id: int) -> list[SourceRow]: ...
+
+    async def get_by_id(
+        self,
+        source_id: int,
+        collection_id: int,
+    ) -> SourceRow | None: ...
 
 
 # ---------------------------------------------------------------------------

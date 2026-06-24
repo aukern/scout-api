@@ -3,6 +3,7 @@
 Error code prefix: SRC
 
 SRC_NF_001   — Collection not found
+SRC_NF_002   — Source not found in collection (browse path)
 SRC_ING_001  — Source ingestion failed (S3 or queue error)
 SRC_VAL_001  — Invalid origin (not a valid URL or empty filename)
 SRC_PROC_001 — Source processing failed (embedding, fetch, or chunking error)
@@ -88,5 +89,21 @@ class SourceNotFoundError(ScoutError):
         super().__init__(
             message=f"Source {source_id} not found — it may have been deleted.",
             code="SRC_PROC_003",
+            status_code=404,
+        )
+
+
+class SourceNotFoundForBrowseError(ScoutError):
+    """Raised when a browse request finds no source in the given collection.
+
+    Distinct from SourceNotFoundError (SRC_PROC_003) which is a worker-side error.
+    This error is for HTTP browse endpoints where the caller supplied a source ID
+    that either does not exist or belongs to a different collection.
+    """
+
+    def __init__(self, source_id: int, collection_id: int) -> None:
+        super().__init__(
+            message=f"Source {source_id} not found in collection {collection_id}.",
+            code="SRC_NF_002",
             status_code=404,
         )

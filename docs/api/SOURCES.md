@@ -95,6 +95,71 @@ Content-Type: multipart/form-data
 
 ---
 
+---
+
+## GET /collections/{collection_id}/sources
+
+List all sources in a collection with their current lifecycle status.
+Results are ordered by creation time (oldest first).
+
+### Response — 200 OK
+
+```json
+{
+  "sources": [
+    {
+      "id": 42,
+      "collection_id": 7,
+      "origin": "https://example.com/doc.pdf",
+      "status": "ready",
+      "created_at": "2024-01-01T12:00:00Z",
+      "updated_at": "2024-01-01T12:05:00Z",
+      "failed_reason": null
+    }
+  ],
+  "total": 1
+}
+```
+
+Returns an empty list (`"sources": [], "total": 0`) when the collection exists but has no sources.
+
+### Error responses
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `SRC_NF_001` | collection_id does not exist |
+
+---
+
+## GET /collections/{collection_id}/sources/{source_id}
+
+Fetch a single source by ID. The source must belong to the given collection —
+cross-collection lookups return 404 (not the source data).
+
+### Response — 200 OK
+
+```json
+{
+  "id": 42,
+  "collection_id": 7,
+  "origin": "https://example.com/doc.pdf",
+  "status": "failed",
+  "created_at": "2024-01-01T12:00:00Z",
+  "updated_at": "2024-01-01T12:03:00Z",
+  "failed_reason": "HTTP 403 fetching origin URL"
+}
+```
+
+`failed_reason` is `null` when status is not `failed`.
+
+### Error responses
+
+| Status | Code | When |
+|--------|------|------|
+| 404 | `SRC_NF_002` | source_id not found, or belongs to a different collection |
+
+---
+
 ## Source lifecycle
 
 ```

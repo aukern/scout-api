@@ -262,7 +262,7 @@ class TestMetrics:
         async def async_work() -> str:
             return "async_done"
 
-        asyncio.get_event_loop().run_until_complete(async_work())
+        asyncio.run(async_work())
         summary = collector.get_summary()
         assert summary["async_op_calls"]["count"] == 1
 
@@ -561,7 +561,7 @@ class TestResilience:
                 raise ValueError("async not yet")
             return "async_ok"
 
-        result = asyncio.get_event_loop().run_until_complete(async_flaky())
+        result = asyncio.run(async_flaky())
         assert result == "async_ok"
         assert call_count[0] == 3
 
@@ -813,9 +813,11 @@ class TestConfig:
         from aukern_infra.config import ConfigField, load_config
         from aukern_infra.errors import ConfigurationError
 
+        # Use a field name that is guaranteed not to exist in config/app_config.dev.yaml
+        # (DATABASE_URL is present there, so it wouldn't raise)
         with pytest.raises(ConfigurationError, match="Required"):
             load_config(
-                [ConfigField("DATABASE_URL", str, required=True)],
+                [ConfigField("NONEXISTENT_REQUIRED_FIELD_XYZ", str, required=True)],
                 env_prefix="NOPREFIX",
             )
 
@@ -853,15 +855,16 @@ class TestConfig:
             assert config.get_bool("DEBUG") is False
 
     def test_config_file_json_is_loaded(self, tmp_path: Path) -> None:
-        import json as _json
-
+        # load_config uses config_dir (not config_file) and reads app_config.{env}.yaml
+        import yaml as _yaml
         from aukern_infra.config import ConfigField, load_config
 
-        cfg_file = tmp_path / "config.json"
-        cfg_file.write_text(_json.dumps({"PORT": 9000}))
+        # Write a valid yaml config file in the expected format for APP_ENV=dev
+        cfg_file = tmp_path / "app_config.dev.yaml"
+        cfg_file.write_text(_yaml.dump({"PORT": 9000}))
         config = load_config(
             [ConfigField("PORT", int, default=8000)],
-            config_file=cfg_file,
+            config_dir=tmp_path,
             env_prefix="NOPREFIX_UNIQUE",
         )
         assert config.get_int("PORT") == 9000

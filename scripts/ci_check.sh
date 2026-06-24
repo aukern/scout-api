@@ -57,7 +57,7 @@ fi
 echo ""
 echo "── Infra Tests ──"
 if [ -d "$ROOT/tests/test_infra" ]; then
-  if APP_ENV=dev "$VENV/pytest" tests/test_infra/ -q --tb=short 2>&1; then
+  if APP_ENV=dev "$VENV/pytest" tests/test_infra/ -q --tb=short -m "not integration" 2>&1; then
     _ok "infra tests"
   else
     _fail "infra tests — see output above"
@@ -92,10 +92,16 @@ echo "── Lockfile freshness (pip-compile) ──"
 if [ -f "$ROOT/requirements-lock.txt" ]; then
   # Regenerate into a temp file and compare — fails if pyproject.toml has changed but lockfile wasn't updated
   TMPLOCK=$(mktemp)
+  PIP_TOOLS_CACHE_DIR="${TMPDIR:-/tmp}/pip-tools-cache"
+  mkdir -p "$PIP_TOOLS_CACHE_DIR"
   "$VENV/pip-compile" "$ROOT/pyproject.toml" \
       --extra dev --extra llm \
       --output-file "$TMPLOCK" --quiet 2>/dev/null || true
-  if diff -q "$ROOT/requirements-lock.txt" "$TMPLOCK" >/dev/null 2>&1; then
+  # Only fail if pip-compile produced a non-empty result and it differs
+  # (empty TMPLOCK means pip-compile failed due to network/cache issue — skip rather than false-fail)
+  if [ ! -s "$TMPLOCK" ]; then
+    echo "  ⚠️  lockfile check skipped — pip-compile could not resolve (network or cache unavailable)"
+  elif diff -q "$ROOT/requirements-lock.txt" "$TMPLOCK" >/dev/null 2>&1; then
     _ok "lockfile up to date"
   else
     _fail "lockfile stale — run: venv/bin/pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt"

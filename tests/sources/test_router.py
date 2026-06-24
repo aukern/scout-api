@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import datetime
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -247,3 +247,216 @@ async def test_source_reingest_same_origin_returns_201_with_same_id() -> None:
 
     assert resp.status_code == 201
     assert resp.json()["id"] == 3
+
+
+# ---------------------------------------------------------------------------
+# Browse endpoint helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_source_full(
+    id: int = 1,
+    collection_id: int = 42,
+    origin: str = "https://example.com/doc.pdf",
+    status: SourceStatus = SourceStatus.READY,
+    failed_reason: str | None = None,
+) -> SourceRow:
+    """SourceRow with timestamps for browse endpoint tests."""
+    return SourceRow(
+        id=id,
+        collection_id=collection_id,
+        origin=origin,
+        status=status,
+        created_at=NOW,
+        updated_at=NOW,
+        failed_reason=failed_reason,
+    )
+
+
+def _make_mock_pool(
+    collection_exists: bool = True,
+    sources: list[SourceRow] | None = None,
+    single_source: SourceRow | None = None,
+) -> MagicMock:
+    """Build a mock asyncpg pool that controls SourceRepository behaviour.
+
+    The browse endpoints call pool.acquire() as a context manager, then
+    instantiate SourceRepository(conn). We patch SourceRepository at the
+    router module level so the mock controls what the repository returns.
+    """
+    pool = MagicMock()
+    conn = AsyncMock()
+    pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+    pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+    return pool
+
+
+# ---------------------------------------------------------------------------
+# GET /collections/{id}/sources — list sources
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_sources_returns_200_with_sources() -> None:
+    """GET list → 200 with correct shape including timestamps."""
+    source = _make_source_full(id=1, status=SourceStatus.READY)
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        repo_instance.collection_exists.return_value = True
+        repo_instance.list_by_collection.return_value = [source]
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/42/sources")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert len(data["sources"]) == 1
+    s = data["sources"][0]
+    assert s["id"] == 1
+    assert s["status"] == "ready"
+    assert "created_at" in s
+    assert "updated_at" in s
+    assert s["failed_reason"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_sources_returns_404_when_collection_not_found() -> None:
+    """GET list for non-existent collection → 404 with SRC_NF_001."""
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        repo_instance.collection_exists.return_value = False
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/999/sources")
+
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "SRC_NF_001"
+
+
+@pytest.mark.asyncio
+async def test_list_sources_returns_empty_list_for_valid_collection_with_no_sources() -> None:
+    """GET list for valid collection with no sources → 200 empty list."""
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        repo_instance.collection_exists.return_value = True
+        repo_instance.list_by_collection.return_value = []
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/42/sources")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["sources"] == []
+
+
+# ---------------------------------------------------------------------------
+# GET /collections/{id}/sources/{source_id} — single source
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_source_returns_200_with_full_detail() -> None:
+    """GET single source → 200 with all fields including failed_reason=null."""
+    source = _make_source_full(id=5, status=SourceStatus.READY)
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        repo_instance.get_by_id.return_value = source
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/42/sources/5")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == 5
+    assert data["collection_id"] == 42
+    assert data["status"] == "ready"
+    assert data["failed_reason"] is None
+    assert "created_at" in data
+    assert "updated_at" in data
+
+
+@pytest.mark.asyncio
+async def test_get_source_returns_200_with_failed_reason_when_failed() -> None:
+    """GET single failed source → 200 with failed_reason populated."""
+    source = _make_source_full(
+        id=7,
+        status=SourceStatus.FAILED,
+        failed_reason="HTTP 403 fetching origin URL",
+    )
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        repo_instance.get_by_id.return_value = source
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/42/sources/7")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "failed"
+    assert data["failed_reason"] == "HTTP 403 fetching origin URL"
+
+
+@pytest.mark.asyncio
+async def test_get_source_returns_404_when_source_not_found() -> None:
+    """GET non-existent source → 404 with SRC_NF_002."""
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        repo_instance.get_by_id.return_value = None
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/42/sources/999")
+
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "SRC_NF_002"
+
+
+@pytest.mark.asyncio
+async def test_get_source_returns_404_when_source_belongs_to_different_collection() -> None:
+    """GET source from wrong collection → 404 (SQL returns None for cross-collection)."""
+    app = create_app()
+    pool = _make_mock_pool()
+    app.state.pool = pool
+
+    with patch("scout_api.sources.router.SourceRepository") as MockRepo:
+        repo_instance = AsyncMock()
+        # Repository returns None when collection_id doesn't match (SQL-enforced)
+        repo_instance.get_by_id.return_value = None
+        MockRepo.return_value = repo_instance
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/collections/99/sources/5")
+
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "SRC_NF_002"
