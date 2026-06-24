@@ -15,7 +15,7 @@ Slice numbers and issue numbers do **not** coincide.
 | 1. Manage collections | crud | done | [#17](https://github.com/aukern/scout-api/issues/17) | — |
 | 2. Ingest a source into a collection | ingest | done | [#18](https://github.com/aukern/scout-api/issues/18) | #17 |
 | 3. Process a source into searchable chunks | command | done | [#20](https://github.com/aukern/scout-api/issues/20) | #18 |
-| 4. Browse sources & their status | query | open | [#21](https://github.com/aukern/scout-api/issues/21) | #18 |
+| 4. Browse sources & their status | query | done | [#21](https://github.com/aukern/scout-api/issues/21) | #18 |
 | 5. Semantic search within a collection | query | open | [#23](https://github.com/aukern/scout-api/issues/23) | #20 |
 | 6. Ask a question, stream a cited answer | query | open | [#24](https://github.com/aukern/scout-api/issues/24) | #23 |
 | 7. Research sessions | crud | done | [#19](https://github.com/aukern/scout-api/issues/19) | #17 |
@@ -125,8 +125,9 @@ the model, not hardcoded — `chunks.embedding vector(N)` follows the configured
 ---
 
 ## 4. Browse sources & their status
+GitHub: SYNC-FAILED — may still be open on GitHub
 
-Status: open
+Status: done
 **Issue:** [#21](https://github.com/aukern/scout-api/issues/21)
 
 ### What to build
