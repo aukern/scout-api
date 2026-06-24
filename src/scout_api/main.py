@@ -17,6 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from scout_api.briefs.router import router as briefs_router
 from scout_api.collections.router import router as collections_router
 from scout_api.config import get_settings
 from scout_api.db import create_pool
@@ -84,6 +85,7 @@ def create_app() -> FastAPI:
     app.include_router(collections_router)
     app.include_router(sources_router)
     app.include_router(sessions_router)
+    app.include_router(briefs_router)
 
     # Prometheus RED metrics scrape endpoint
     app.mount("/metrics", metrics_asgi_app())
