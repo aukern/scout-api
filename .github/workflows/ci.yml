@@ -403,7 +403,10 @@ jobs:
       - name: Check requirements-lock.txt is current
         run: |
           pip install pip-tools
-          pip-compile pyproject.toml --extra dev --extra llm --no-upgrade --output-file requirements-lock.check.txt --quiet
+          cp requirements-lock.txt requirements-lock.check.txt
+          pip-compile pyproject.toml --extra dev --extra llm \
+            --no-upgrade \
+            --output-file requirements-lock.check.txt --quiet
           # Strip all leading comment lines (pip-compile header contains environment-specific
           # flags like --output-file path that differ between environments).
           grep -v '^#' requirements-lock.txt > requirements-lock.body.txt

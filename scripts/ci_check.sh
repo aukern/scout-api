@@ -79,6 +79,7 @@ echo "── Lockfile freshness (pip-compile) ──"
 if [ -f "$ROOT/requirements-lock.txt" ]; then
   # Regenerate into a temp file and compare — fails if pyproject.toml has changed but lockfile wasn't updated
   TMPLOCK=$(mktemp)
+  cp "$ROOT/requirements-lock.txt" "$TMPLOCK"
   PIP_TOOLS_CACHE_DIR="${TMPDIR:-/tmp}/pip-tools-cache"
   mkdir -p "$PIP_TOOLS_CACHE_DIR"
   "$VENV/pip-compile" "$ROOT/pyproject.toml" \
