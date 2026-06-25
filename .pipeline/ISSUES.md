@@ -19,7 +19,7 @@ Slice numbers and issue numbers do **not** coincide.
 | 5. Semantic search within a collection | query | open | [#23](https://github.com/aukern/scout-api/issues/23) | #20 |
 | 6. Ask a question, stream a cited answer | query | open | [#24](https://github.com/aukern/scout-api/issues/24) | #23 |
 | 7. Research sessions | crud | done | [#19](https://github.com/aukern/scout-api/issues/19) | #17 |
-| 8. Save answers as briefs | crud | open | [#22](https://github.com/aukern/scout-api/issues/22) | #19 |
+| 8. Save answers as briefs | crud | done | [#22](https://github.com/aukern/scout-api/issues/22) | #19 |
 
 **Confirmed schema shape** (from the prototype, dimension derived from the embedding model):
 
@@ -245,8 +245,9 @@ record into a Session when given a session id; this slice owns the Session lifec
 ---
 
 ## 8. Save answers as briefs
+GitHub: SYNC-FAILED — may still be open on GitHub
 
-Status: open
+Status: done
 **Issue:** [#22](https://github.com/aukern/scout-api/issues/22)
 
 ### What to build
