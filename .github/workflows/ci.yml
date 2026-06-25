@@ -35,14 +35,13 @@ jobs:
           # If the secret is absent, this step is a no-op (aukern-infra must then
           # be present in requirements-lock.txt or installed another way).
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
 
       - name: Run unit tests
         run: pytest tests/ -q --tb=short --ignore=tests/test_infra -m "not integration"
@@ -93,14 +92,13 @@ jobs:
       - name: Install aukern-infra
         run: |
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
 
       - name: Run integration tests
         run: pytest tests/ -q --tb=short -m "integration" --timeout=60
@@ -145,15 +143,14 @@ jobs:
       - name: Install aukern-infra
         run: |
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
-          uv pip install pytest-benchmark
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
+          pip install pytest-benchmark
 
       - name: Restore benchmark baseline
         uses: actions/cache@v4
@@ -211,15 +208,14 @@ jobs:
       - name: Install aukern-infra
         run: |
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
-          uv pip install mutmut
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
+          pip install mutmut
 
       - name: Run mutation tests
         run: |
@@ -292,14 +288,13 @@ jobs:
       - name: Install aukern-infra
         run: |
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
 
       - name: Run coverage
         run: pytest tests/ tests/test_infra/ --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=90 -q -m "not integration"
@@ -330,14 +325,13 @@ jobs:
       - name: Install aukern-infra
         run: |
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
 
       - name: Ruff lint (includes complexity C901)
         run: ruff check src/ tests/
@@ -365,15 +359,14 @@ jobs:
       - name: Install aukern-infra
         run: |
           if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            uv pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
+            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
           fi
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
-          uv pip install bandit pip-audit
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
+          pip install bandit pip-audit
 
       - name: Bandit SAST scan
         run: bandit -r src/ -ll --exclude tests/
@@ -444,8 +437,8 @@ jobs:
 
       - name: Check requirements-lock.txt is current
         run: |
-          pip install uv
-          uv pip compile pyproject.toml --output-file requirements-lock.check.txt --quiet --generate-hashes
+          pip install pip-tools
+          pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.check.txt --quiet --generate-hashes
           diff requirements-lock.txt requirements-lock.check.txt || \
             (echo "LOCKFILE STALE: run 'make lock' to regenerate requirements-lock.txt" && exit 1)
 
@@ -466,10 +459,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install uv
-          uv pip sync requirements-lock.txt
-          uv pip install -e ".[dev]" --no-deps
-          uv pip install cyclonedx-bom
+          pip install -r requirements-lock.txt
+          pip install -e ".[dev]" --no-deps
+          pip install cyclonedx-bom
 
       - name: Generate SBOM (CycloneDX JSON)
         run: cyclonedx-py environment --output-format json --outfile sbom.json
