@@ -24,12 +24,12 @@ format:
 
 # Dependency lockfile management
 lock:
-	pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt --quiet --generate-hashes
-	@echo "requirements-lock.txt updated (with hashes). Commit the result."
+	pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt --quiet
+	@echo "requirements-lock.txt updated. Commit the result."
 
 lock-upgrade:
-	pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt --upgrade --quiet --generate-hashes
-	@echo "All dependencies upgraded (with hashes). Review and commit."
+	pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt --upgrade --quiet
+	@echo "All dependencies upgraded. Review and commit."
 
 # Security audit
 audit:

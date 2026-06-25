@@ -391,7 +391,7 @@ jobs:
       - name: Check requirements-lock.txt is current
         run: |
           pip install pip-tools
-          pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.check.txt --quiet --generate-hashes
+          pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.check.txt --quiet
           # Strip the auto-generated header comment (contains environment-specific flags like --pip-args)
           # so the diff only compares actual package pins, not the command that generated them.
           tail -n +3 requirements-lock.txt > requirements-lock.body.txt
