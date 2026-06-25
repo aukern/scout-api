@@ -166,7 +166,7 @@ async def process_source(ctx: dict[str, Any], *, source_id: int) -> None:
 
     # Emit domain event
     try:
-        from aukern_infra.events import get_event_bus  # noqa: PLC0415
+        from scout_api.events import get_event_bus  # noqa: PLC0415
 
         get_event_bus().emit("source.processing_started", {"source_id": source_id})
     except Exception:  # noqa: BLE001, S110
@@ -211,7 +211,7 @@ async def process_source(ctx: dict[str, Any], *, source_id: int) -> None:
 
         # Emit domain event
         try:
-            from aukern_infra.events import get_event_bus  # noqa: PLC0415
+            from scout_api.events import get_event_bus  # noqa: PLC0415
 
             get_event_bus().emit(
                 "source.ready",
@@ -241,7 +241,7 @@ async def process_source(ctx: dict[str, Any], *, source_id: int) -> None:
 
         # Emit domain event
         try:
-            from aukern_infra.events import get_event_bus  # noqa: PLC0415
+            from scout_api.events import get_event_bus  # noqa: PLC0415
 
             get_event_bus().emit(
                 "source.failed",

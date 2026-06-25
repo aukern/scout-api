@@ -1,25 +1,9 @@
-"""Shared test fixtures for scout-api.
-
-Test isolation strategy:
-- Each test that touches the database runs inside a transaction that is rolled
-  back at the end of the test. This is cheaper than truncating tables and
-  produces identical isolation.
-- The app_client fixture builds a test FastAPI client that injects a
-  transactional connection as the pool, so router tests hit a real DB
-  that is also rolled back.
-- Tests that do NOT need a database should avoid requesting db_conn or
-  app_client to keep them fast.
-
-Requirements:
-  Set TEST_DATABASE_URL in the environment (or .env) to a Postgres DSN.
-  A test database with the scout-api schema applied must be available.
-  Use docker compose --profile postgres up to start a local Postgres instance.
-"""
+"""Project-wide pytest fixtures."""
 
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import asyncpg
@@ -42,6 +26,24 @@ TEST_DATABASE_URL = os.environ.get(
 def has_test_db() -> bool:
     """Return True if a test database URL is configured."""
     return bool(TEST_DATABASE_URL)
+
+
+# ---------------------------------------------------------------------------
+# Infrastructure singleton reset
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_infra_singletons() -> Generator[None, None, None]:
+    """Reset project infrastructure singletons between tests."""
+    import scout_api.events as events_mod
+
+    orig_bus = events_mod._default_bus
+    events_mod._default_bus = None
+
+    yield
+
+    events_mod._default_bus = orig_bus
 
 
 # ---------------------------------------------------------------------------
@@ -90,16 +92,10 @@ async def db_conn(db_pool: asyncpg.Pool) -> AsyncGenerator[asyncpg.Connection, N
 
 @pytest_asyncio.fixture
 async def async_client(db_pool: asyncpg.Pool) -> AsyncGenerator[AsyncClient, None]:
-    """AsyncClient wired to the real test database pool.
-
-    The lifespan is bypassed — we inject the test pool directly.
-    This means the client uses the same pool as db_conn, and if tests
-    need transaction-level isolation they should use db_conn directly.
-    """
+    """AsyncClient wired to the real test database pool."""
     app = create_app()
     app.state.pool = db_pool
 
-    # Bypass lifespan so we don't open a second pool
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 

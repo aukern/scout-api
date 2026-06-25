@@ -17,7 +17,7 @@ Slice numbers and issue numbers do **not** coincide.
 | 3. Process a source into searchable chunks | command | done | [#20](https://github.com/aukern/scout-api/issues/20) | #18 |
 | 4. Browse sources & their status | query | done | [#21](https://github.com/aukern/scout-api/issues/21) | #18 |
 | 5. Semantic search within a collection | query | done | [#23](https://github.com/aukern/scout-api/issues/23) | #20 |
-| 6. Ask a question, stream a cited answer | query | open | [#24](https://github.com/aukern/scout-api/issues/24) | #23 |
+| 6. Ask a question, stream a cited answer | query | done | [#24](https://github.com/aukern/scout-api/issues/24) | #23 |
 | 7. Research sessions | crud | done | [#19](https://github.com/aukern/scout-api/issues/19) | #17 |
 | 8. Save answers as briefs | crud | done | [#22](https://github.com/aukern/scout-api/issues/22) | #19 |
 
@@ -182,8 +182,9 @@ cross-Collection leakage (ADR 0001); non-`ready` Sources contribute nothing.
 ---
 
 ## 6. Ask a question, stream a cited answer
+GitHub: SYNC-FAILED — may still be open on GitHub
 
-Status: open
+Status: done
 **Issue:** [#24](https://github.com/aukern/scout-api/issues/24)
 
 ### What to build

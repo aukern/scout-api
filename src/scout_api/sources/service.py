@@ -35,9 +35,9 @@ import os
 from typing import Any
 
 import structlog
-from scout_api.observability import observed
 from opentelemetry import trace
 
+from scout_api.observability import observed
 from scout_api.sources.contracts import SourceRow
 from scout_api.sources.errors import (
     CollectionNotFoundError,

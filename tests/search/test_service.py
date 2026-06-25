@@ -253,8 +253,9 @@ class TestSearchServiceSearch:
 class TestSearchServiceEventRegistration:
     def test_register_subscribes_to_event_bus(self) -> None:
         """_register_cache_invalidation subscribes to source.ready event."""
-        from aukern_infra.events import get_event_bus
+        from scout_api.events import get_event_bus, reset_event_bus
 
+        reset_event_bus()
         repo = InMemorySearchRepository()
         cache = _make_cache()
         embedder = _make_embedder()
@@ -268,6 +269,7 @@ class TestSearchServiceEventRegistration:
 
         # Cleanup: unsubscribe to avoid leaking across tests
         bus.unsubscribe("source.ready", service._on_source_ready)
+        reset_event_bus()
 
     def test_register_handles_missing_event_bus_gracefully(self) -> None:
         """If event bus import fails, service still constructs successfully."""
@@ -277,8 +279,8 @@ class TestSearchServiceEventRegistration:
 
         import sys
 
-        with patch.dict(sys.modules, {"aukern_infra": None, "aukern_infra.events": None}):
-            # Should not raise even if aukern_infra is unavailable
+        with patch.dict(sys.modules, {"scout_api.events": None}):
+            # Should not raise even if event bus is unavailable
             try:
                 service = SearchService(repo=repo, cache=cache, embedder=embedder)
             except Exception:

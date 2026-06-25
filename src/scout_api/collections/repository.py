@@ -14,13 +14,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import asyncpg
-from scout_api.observability import observed
 from opentelemetry import trace
 
 from scout_api.collections.errors import (
     CollectionAlreadyExistsError,
     CollectionNotFoundError,
 )
+from scout_api.observability import observed
 
 tracer = trace.get_tracer(__name__)
 

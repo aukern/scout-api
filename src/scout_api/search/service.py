@@ -24,8 +24,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import structlog
-from scout_api.observability import observed
 
+from scout_api.observability import observed
 from scout_api.search.cache import SearchCache, make_cache_key
 from scout_api.search.contracts import SearchQuery, SearchRepositoryProtocol, SearchResult
 from scout_api.search.errors import CollectionNotFoundForSearchError, SearchEmbeddingError
@@ -157,7 +157,7 @@ class SearchService:
         the next search sees the freshly-indexed content.
         """
         try:
-            from aukern_infra.events import get_event_bus  # noqa: PLC0415
+            from scout_api.events import get_event_bus  # noqa: PLC0415
 
             get_event_bus().subscribe("source.ready", self._on_source_ready)
             logger.debug("search.service.subscribed_source_ready")

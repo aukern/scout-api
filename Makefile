@@ -1,12 +1,9 @@
-.PHONY: test test-infra test-integration coverage lint format migrate migrate-status rollback \
+.PHONY: test test-integration coverage lint format migrate migrate-status rollback \
         lock lock-upgrade audit pre-commit ci \
         docker-build docker-up docker-dev docker-down docker-logs docker-shell docker-reset clean
 
 test:
-	APP_ENV=dev pytest tests/ -q --ignore=tests/test_infra
-
-test-infra:
-	pytest tests/test_infra/ -q
+	APP_ENV=dev pytest tests/ -q
 
 test-integration:
 	APP_ENV=dev pytest tests/ -q -m integration

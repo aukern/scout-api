@@ -12,10 +12,10 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from prometheus_client import make_asgi_app
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from prometheus_client import make_asgi_app
 
 from scout_api.briefs.router import router as briefs_router
 from scout_api.collections.router import router as collections_router

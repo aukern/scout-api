@@ -1,10 +1,12 @@
 """RED-method observability decorator for service and repository methods."""
+
 from __future__ import annotations
 
 import asyncio
 import functools
 import time
-from typing import Any, Callable, ParamSpec, TypeVar
+from collections.abc import Callable
+from typing import Any, ParamSpec, TypeVar
 
 from prometheus_client import Counter, Histogram
 
@@ -18,6 +20,7 @@ _OPS_DURATION = Histogram("operation_duration_seconds", "RED: operation duration
 def observed(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         if asyncio.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 start = time.perf_counter()
@@ -30,8 +33,10 @@ def observed(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
                 finally:
                     _OPS_TOTAL.labels(name, outcome).inc()
                     _OPS_DURATION.labels(name).observe(time.perf_counter() - start)
+
             return async_wrapper  # type: ignore[return-value]
         else:
+
             @functools.wraps(fn)
             def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 start = time.perf_counter()
@@ -44,5 +49,7 @@ def observed(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
                 finally:
                     _OPS_TOTAL.labels(name, outcome).inc()
                     _OPS_DURATION.labels(name).observe(time.perf_counter() - start)
+
             return sync_wrapper  # type: ignore[return-value]
+
     return decorator

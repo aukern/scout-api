@@ -47,23 +47,10 @@ fi
 # ── Unit Tests ───────────────────────────────────────────────────────────────
 echo ""
 echo "── Unit Tests (pytest) ──"
-if APP_ENV=dev "$VENV/pytest" tests/ -q --tb=short --ignore=tests/test_infra -m "not integration" 2>&1; then
+if APP_ENV=dev "$VENV/pytest" tests/ -q --tb=short -m "not integration" 2>&1; then
   _ok "unit tests"
 else
   _fail "unit tests — see output above"
-fi
-
-# ── Infra Tests ──────────────────────────────────────────────────────────────
-echo ""
-echo "── Infra Tests ──"
-if [ -d "$ROOT/tests/test_infra" ]; then
-  if APP_ENV=dev "$VENV/pytest" tests/test_infra/ -q --tb=short -m "not integration" 2>&1; then
-    _ok "infra tests"
-  else
-    _fail "infra tests — see output above"
-  fi
-else
-  _fail "tests/test_infra/ missing — run: pipeline gen-infra-tests --project ."
 fi
 
 # ── RED Metrics wiring (@observed + /metrics) ────────────────────────────────
@@ -78,7 +65,7 @@ fi
 # ── Coverage ─────────────────────────────────────────────────────────────────
 echo ""
 echo "── Coverage Gate (≥90%) ──"
-if APP_ENV=dev "$VENV/pytest" tests/ tests/test_infra/ \
+if APP_ENV=dev "$VENV/pytest" tests/ \
     --cov=src --cov-report=term-missing --cov-fail-under=90 \
     -q -m "not integration" 2>&1; then
   _ok "coverage ≥90%"

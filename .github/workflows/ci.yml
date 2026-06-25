@@ -33,10 +33,7 @@ jobs:
           pip install -e ".[dev]" --no-deps
 
       - name: Run unit tests
-        run: pytest tests/ -q --tb=short --ignore=tests/test_infra -m "not integration"
-
-      - name: Run infra tests
-        run: pytest tests/test_infra/ -q --tb=short
+        run: pytest tests/ -q --tb=short -m "not integration"
 
   # ── Integration Tests ─────────────────────────────────────────────────────────
   integration:
@@ -262,7 +259,7 @@ jobs:
           pip install -e ".[dev]" --no-deps
 
       - name: Run coverage
-        run: pytest tests/ tests/test_infra/ --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=90 -q -m "not integration"
+        run: pytest tests/ --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=90 -q -m "not integration"
         env:
           APP_ENV: dev
 

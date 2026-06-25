@@ -22,11 +22,11 @@ import json
 
 import asyncpg
 import structlog
-from scout_api.observability import observed
 from opentelemetry import trace
 
 from scout_api.briefs.contracts import BriefCitation, BriefRow
 from scout_api.briefs.errors import BriefSessionNotFoundError
+from scout_api.observability import observed
 
 logger: structlog.BoundLogger = structlog.get_logger(__name__)
 tracer = trace.get_tracer(__name__)

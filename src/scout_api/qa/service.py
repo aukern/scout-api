@@ -21,9 +21,9 @@ import json
 from collections.abc import AsyncIterator
 
 import structlog
-from scout_api.observability import observed
 from opentelemetry import trace
 
+from scout_api.observability import observed
 from scout_api.qa.contracts import AnswerChunk, Citation, QARepositoryProtocol, Question
 from scout_api.qa.errors import (
     QACollectionNotFoundError,
@@ -102,16 +102,17 @@ class QAService:
     ) -> None:
         """Emit question.answered notification (non-fatal)."""
         try:
-            from aukern_infra.events import get_notifier  # noqa: PLC0415
+            from scout_api.events import DomainEvent, get_event_bus  # noqa: PLC0415
 
-            await get_notifier().emit(
-                "question.answered",
-                severity="info",
-                payload={
-                    "collection_id": collection_id,
-                    "citation_count": citation_count,
-                    "token_count": token_count,
-                },
+            get_event_bus().publish(
+                DomainEvent(
+                    event_type="question.answered",
+                    payload={
+                        "collection_id": collection_id,
+                        "citation_count": citation_count,
+                        "token_count": token_count,
+                    },
+                )
             )
         except Exception as emit_exc:  # noqa: BLE001
             logger.debug("qa.service.emit_error", error=str(emit_exc))

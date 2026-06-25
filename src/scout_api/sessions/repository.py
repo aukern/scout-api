@@ -18,9 +18,9 @@ from typing import Literal
 
 import asyncpg
 import structlog
-from scout_api.observability import observed
 from opentelemetry import trace
 
+from scout_api.observability import observed
 from scout_api.sessions.contracts import SessionActivityRow, SessionRow
 from scout_api.sessions.errors import SessionCollectionNotFoundError
 
