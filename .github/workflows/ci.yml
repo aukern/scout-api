@@ -80,6 +80,11 @@ jobs:
           pip install -r requirements-lock.txt
           pip install -e ".[dev]" --no-deps
 
+      - name: Run database migrations
+        run: python scripts/migrate.py
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+
       - name: Run integration tests
         run: pytest tests/ -q --tb=short -m "integration" --timeout=60
         env:
@@ -191,7 +196,7 @@ jobs:
         run: |
           pip install -r requirements-lock.txt
           pip install -e ".[dev]" --no-deps
-          pip install mutmut
+          pip install "mutmut<3"
 
       - name: Run mutation tests
         run: |
