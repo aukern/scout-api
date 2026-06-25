@@ -16,7 +16,7 @@ Slice numbers and issue numbers do **not** coincide.
 | 2. Ingest a source into a collection | ingest | done | [#18](https://github.com/aukern/scout-api/issues/18) | #17 |
 | 3. Process a source into searchable chunks | command | done | [#20](https://github.com/aukern/scout-api/issues/20) | #18 |
 | 4. Browse sources & their status | query | done | [#21](https://github.com/aukern/scout-api/issues/21) | #18 |
-| 5. Semantic search within a collection | query | open | [#23](https://github.com/aukern/scout-api/issues/23) | #20 |
+| 5. Semantic search within a collection | query | done | [#23](https://github.com/aukern/scout-api/issues/23) | #20 |
 | 6. Ask a question, stream a cited answer | query | open | [#24](https://github.com/aukern/scout-api/issues/24) | #23 |
 | 7. Research sessions | crud | done | [#19](https://github.com/aukern/scout-api/issues/19) | #17 |
 | 8. Save answers as briefs | crud | done | [#22](https://github.com/aukern/scout-api/issues/22) | #19 |
@@ -151,8 +151,9 @@ relying on Search.
 ---
 
 ## 5. Semantic search within a collection
+GitHub: SYNC-FAILED — may still be open on GitHub
 
-Status: open
+Status: done
 **Issue:** [#23](https://github.com/aukern/scout-api/issues/23)
 
 ### What to build
