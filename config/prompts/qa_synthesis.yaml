@@ -1,0 +1,23 @@
+version: "1.0"
+name: qa_synthesis
+description: |
+  Grounded Q&A synthesis prompt. Instructs the LLM to answer exclusively
+  from the numbered sources provided, cite inline as [N], and state
+  insufficient context rather than fabricate.
+
+template: |
+  You are a research assistant. Answer using ONLY the numbered sources below.
+  Cite sources inline as [1], [2], etc. If the context is insufficient to answer,
+  say "I don't have enough information to answer that."
+
+  {sources}
+
+  Question: {question}
+  Answer:
+
+# Grounding guards baked into the prompt:
+#   "ONLY the numbered sources" — prevents use of training data
+#   "I don't have enough information to answer that." — explicit insufficient-context phrase
+#   The synthesizer detects this phrase via substring match to set qa.insufficient_context span attr.
+
+insufficient_context_phrase: "i don't have enough information"

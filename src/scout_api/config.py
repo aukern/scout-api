@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # Semantic search cache (slice 23)
     search_cache_ttl_seconds: int = 300
 
+    # QA / synthesis (slice 24)
+    llm_model: str = "gpt-4o-mini"  # LiteLLM model string for synthesis
+    litellm_api_base: str = ""  # Optional: for local models (Ollama etc.)
+    qa_top_k_default: int = 10  # Default retrieval top_k
+
 
 def get_settings() -> Settings:
     """Return application settings, reading from environment."""
