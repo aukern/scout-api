@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     chunk_token_size: int = 512
     chunk_overlap_tokens: int = 64
 
+    # Semantic search cache (slice 23)
+    search_cache_ttl_seconds: int = 300
+
 
 def get_settings() -> Settings:
     """Return application settings, reading from environment."""
