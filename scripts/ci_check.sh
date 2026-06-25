@@ -84,14 +84,23 @@ if [ -f "$ROOT/requirements-lock.txt" ]; then
   "$VENV/pip-compile" "$ROOT/pyproject.toml" \
       --extra dev --extra llm \
       --output-file "$TMPLOCK" --quiet 2>/dev/null || true
-  # Only fail if pip-compile produced a non-empty result and it differs
+  # Only fail if pip-compile produced a non-empty result and it differs.
+  # Strip all comment lines before diffing — the pip-compile header contains environment-specific
+  # flags (like --output-file path) that differ between environments.
   # (empty TMPLOCK means pip-compile failed due to network/cache issue — skip rather than false-fail)
   if [ ! -s "$TMPLOCK" ]; then
     echo "  ⚠️  lockfile check skipped — pip-compile could not resolve (network or cache unavailable)"
-  elif diff -q "$ROOT/requirements-lock.txt" "$TMPLOCK" >/dev/null 2>&1; then
-    _ok "lockfile up to date"
   else
-    _fail "lockfile stale — run: venv/bin/pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt"
+    TMPBODY_A=$(mktemp)
+    TMPBODY_B=$(mktemp)
+    grep -v '^#' "$ROOT/requirements-lock.txt" > "$TMPBODY_A"
+    grep -v '^#' "$TMPLOCK" > "$TMPBODY_B"
+    if diff -q "$TMPBODY_A" "$TMPBODY_B" >/dev/null 2>&1; then
+      _ok "lockfile up to date"
+    else
+      _fail "lockfile stale — run: venv/bin/pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.txt"
+    fi
+    rm -f "$TMPBODY_A" "$TMPBODY_B"
   fi
   rm -f "$TMPLOCK"
 else
@@ -126,19 +135,18 @@ fi
 echo ""
 echo "── Performance Benchmarks ──"
 if "$VENV/python" -m pytest --co -q -m "benchmark" tests/ 2>/dev/null | grep -q "::"; then
-  COMPARE_FLAGS=""
-  if [ -n "$(ls -A .benchmarks/ 2>/dev/null)" ]; then
-    COMPARE_FLAGS="--benchmark-compare --benchmark-compare-fail=mean:10%"
-  else
-    echo "  ⚠️  No benchmark baseline found — saving initial baseline (no regression check this run)"
+  COMPARE_ARGS=""
+  if [ -d .benchmarks ] && [ "$(ls -A .benchmarks 2>/dev/null)" ]; then
+    COMPARE_ARGS="--benchmark-compare --benchmark-compare-fail=mean:10%"
   fi
   if APP_ENV=dev "$VENV/pytest" tests/ -m "benchmark" \
       --benchmark-only \
-      $COMPARE_FLAGS \
+      --benchmark-save=current \
+      $COMPARE_ARGS \
       -q --tb=short 2>&1; then
-    _ok "performance benchmarks (no regression > 10%)"
+    _ok "performance benchmarks"
   else
-    _fail "performance benchmarks — mean regression > 10% detected vs baseline"
+    _fail "performance benchmarks — regression detected or benchmark error"
   fi
 else
   echo "  ⚠️  SKIPPED — no tests marked @pytest.mark.benchmark found"

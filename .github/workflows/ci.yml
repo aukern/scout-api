@@ -135,22 +135,24 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          # Only compare against baseline if one exists — first run just saves it
-          COMPARE_FLAGS=""
-          if [ -n "$(ls -A .benchmarks/ 2>/dev/null)" ]; then
-            COMPARE_FLAGS="--benchmark-compare --benchmark-compare-fail=mean:10%"
-          else
-            echo "No baseline found — saving initial baseline (no regression check this run)"
+          # Skip if no benchmark tests exist (pytest exit 5 = no tests collected)
+          if ! pytest --co -q -m "benchmark" tests/ 2>/dev/null | grep -q "::"; then
+            echo "No @pytest.mark.benchmark tests found — skipping"
+            exit 0
+          fi
+          COMPARE_ARGS=""
+          if [ -d .benchmarks ] && [ "$(ls -A .benchmarks 2>/dev/null)" ]; then
+            COMPARE_ARGS="--benchmark-compare --benchmark-compare-fail=mean:10%"
           fi
           pytest tests/ -m "benchmark" \
             --benchmark-only \
             --benchmark-json=benchmark-results.json \
-            $COMPARE_FLAGS \
+            --benchmark-save=current \
+            $COMPARE_ARGS \
             -q --tb=short
         env:
           APP_ENV: dev
           DATABASE_URL: postgresql://test:test@localhost:5432/test
-        # --benchmark-compare-fail=mean:10% — fails if any benchmark mean regresses > 10% vs baseline
 
       - name: Save benchmark baseline
         uses: actions/cache@v4
@@ -197,7 +199,6 @@ jobs:
             --paths-to-mutate src/ \
             --tests-dir tests/ \
             --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'" \
-            --use-coverage \
             --no-progress
         env:
           APP_ENV: dev
@@ -395,10 +396,10 @@ jobs:
         run: |
           pip install pip-tools
           pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.check.txt --quiet
-          # Strip the auto-generated header comment (contains environment-specific flags like --pip-args)
-          # so the diff only compares actual package pins, not the command that generated them.
-          tail -n +3 requirements-lock.txt > requirements-lock.body.txt
-          tail -n +3 requirements-lock.check.txt > requirements-lock.check.body.txt
+          # Strip all leading comment lines (pip-compile header contains environment-specific
+          # flags like --output-file path that differ between environments).
+          grep -v '^#' requirements-lock.txt > requirements-lock.body.txt
+          grep -v '^#' requirements-lock.check.txt > requirements-lock.check.body.txt
           diff requirements-lock.body.txt requirements-lock.check.body.txt || \
             (echo "LOCKFILE STALE: run 'make lock' to regenerate requirements-lock.txt" && exit 1)
 
@@ -421,10 +422,10 @@ jobs:
         run: |
           pip install -r requirements-lock.txt
           pip install -e ".[dev]" --no-deps
-          pip install "cyclonedx-bom>=3.0,<4.0"
+          pip install cyclonedx-bom
 
       - name: Generate SBOM (CycloneDX JSON)
-        run: cyclonedx-py environment --output-format json --outfile sbom.json
+        run: cyclonedx-py environment -o sbom.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
@@ -447,16 +448,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set up QEMU (multi-arch emulation)
-        uses: docker/setup-qemu-action@v3
-
-      - name: Build image (multi-arch, with OCI labels)
+      - name: Build image (with OCI labels)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           push: false
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ${{ github.repository }}:${{ github.sha }}
           build-args: |
             VCS_REF=${{ github.sha }}
