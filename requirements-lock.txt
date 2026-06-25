@@ -298,8 +298,6 @@ wrapt==2.2.1
     #   deprecated
     #   opentelemetry-instrumentation
 
-# WARNING: The following packages were not pinned, but pip requires them to be
-# pinned when the requirements file includes hashes and the requirement is not
-# satisfied by a package already installed. Consider using the --allow-unsafe flag.
+# The following packages are considered to be unsafe in a requirements file:
 # pip
 # setuptools

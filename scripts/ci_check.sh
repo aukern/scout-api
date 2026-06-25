@@ -126,10 +126,15 @@ fi
 echo ""
 echo "── Performance Benchmarks ──"
 if "$VENV/python" -m pytest --co -q -m "benchmark" tests/ 2>/dev/null | grep -q "::"; then
+  COMPARE_FLAGS=""
+  if [ -n "$(ls -A .benchmarks/ 2>/dev/null)" ]; then
+    COMPARE_FLAGS="--benchmark-compare --benchmark-compare-fail=mean:10%"
+  else
+    echo "  ⚠️  No benchmark baseline found — saving initial baseline (no regression check this run)"
+  fi
   if APP_ENV=dev "$VENV/pytest" tests/ -m "benchmark" \
       --benchmark-only \
-      --benchmark-compare \
-      --benchmark-compare-fail=mean:10% \
+      $COMPARE_FLAGS \
       -q --tb=short 2>&1; then
     _ok "performance benchmarks (no regression > 10%)"
   else

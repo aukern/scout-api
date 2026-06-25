@@ -102,7 +102,7 @@ class BriefRepository:
     definition). The caller passes an asyncpg.Connection to each method.
     """
 
-    @observed("briefs.save")  # type: ignore[untyped-decorator]
+    @observed("briefs.save")
     async def save(
         self,
         session_id: int,
@@ -174,7 +174,7 @@ class BriefRepository:
             )
             return result
 
-    @observed("briefs.list_for_session")  # type: ignore[untyped-decorator]
+    @observed("briefs.list_for_session")
     async def list_for_session(
         self,
         session_id: int,

@@ -127,7 +127,7 @@ class IngestService:
         self._queue = queue
         self._emit = event_emit or (lambda *a, **kw: None)
 
-    @observed("sources.ingest_url")  # type: ignore[untyped-decorator]
+    @observed("sources.ingest_url")
     async def ingest_url(
         self,
         collection_id: int,
@@ -182,7 +182,7 @@ class IngestService:
                 span.set_status(trace.StatusCode.ERROR, str(exc))
                 raise
 
-    @observed("sources.ingest_file")  # type: ignore[untyped-decorator]
+    @observed("sources.ingest_file")
     async def ingest_file(
         self,
         collection_id: int,

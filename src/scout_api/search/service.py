@@ -75,7 +75,7 @@ class SearchService:
     # Public interface
     # ------------------------------------------------------------------
 
-    @observed("search.query")  # type: ignore[untyped-decorator]
+    @observed("search.query")
     async def search(self, query: SearchQuery) -> SearchResponse:
         """Execute a semantic search query.
 

@@ -43,7 +43,7 @@ class SessionRepository:
     def __init__(self, conn: asyncpg.Connection | asyncpg.Pool) -> None:
         self._conn = conn
 
-    @observed("sessions.open")  # type: ignore[untyped-decorator]
+    @observed("sessions.open")
     async def open(self, collection_id: int, conn: asyncpg.Connection) -> SessionRow:
         """Open (INSERT) a new session scoped to the given collection.
 
@@ -100,7 +100,7 @@ class SessionRepository:
             )
             return result
 
-    @observed("sessions.get")  # type: ignore[untyped-decorator]
+    @observed("sessions.get")
     async def get(self, session_id: int, conn: asyncpg.Connection) -> SessionRow | None:
         """Fetch a session row by id.
 
@@ -133,7 +133,7 @@ class SessionRepository:
                 created_at=row["created_at"],
             )
 
-    @observed("sessions.list_all")  # type: ignore[untyped-decorator]
+    @observed("sessions.list_all")
     async def list_all(
         self,
         collection_id: int | None,
@@ -176,7 +176,7 @@ class SessionRepository:
             span.set_attribute("sessions.count", len(result))
             return result
 
-    @observed("sessions.delete")  # type: ignore[untyped-decorator]
+    @observed("sessions.delete")
     async def delete(self, session_id: int, conn: asyncpg.Connection) -> bool:
         """Delete a session row by id.
 
@@ -219,7 +219,7 @@ class SessionActivityRepository:
     The caller passes the connection — this repository does not acquire its own.
     """
 
-    @observed("sessions.activity.record")  # type: ignore[untyped-decorator]
+    @observed("sessions.activity.record")
     async def record(
         self,
         session_id: int,
@@ -269,7 +269,7 @@ class SessionActivityRepository:
             span.set_attribute("activity.id", result.id)
             return result
 
-    @observed("sessions.activity.list_for_session")  # type: ignore[untyped-decorator]
+    @observed("sessions.activity.list_for_session")
     async def list_for_session(
         self,
         session_id: int,

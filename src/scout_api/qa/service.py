@@ -63,7 +63,7 @@ class QAService:
         self._embedder = embedder
         self._activity_repo = activity_repo
 
-    @observed("qa.ask")  # type: ignore[untyped-decorator]
+    @observed("qa.ask")
     async def ask(
         self,
         question: Question,

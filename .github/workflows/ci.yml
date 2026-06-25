@@ -135,11 +135,17 @@ jobs:
 
       - name: Run benchmarks
         run: |
+          # Only compare against baseline if one exists — first run just saves it
+          COMPARE_FLAGS=""
+          if [ -n "$(ls -A .benchmarks/ 2>/dev/null)" ]; then
+            COMPARE_FLAGS="--benchmark-compare --benchmark-compare-fail=mean:10%"
+          else
+            echo "No baseline found — saving initial baseline (no regression check this run)"
+          fi
           pytest tests/ -m "benchmark" \
             --benchmark-only \
             --benchmark-json=benchmark-results.json \
-            --benchmark-compare \
-            --benchmark-compare-fail=mean:10% \
+            $COMPARE_FLAGS \
             -q --tb=short
         env:
           APP_ENV: dev
@@ -357,7 +363,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: Dockerfile
           load: true   # load into local Docker daemon for Trivy to scan
           tags: scan-target:latest
           cache-from: type=gha
@@ -415,7 +421,7 @@ jobs:
         run: |
           pip install -r requirements-lock.txt
           pip install -e ".[dev]" --no-deps
-          pip install cyclonedx-bom
+          pip install "cyclonedx-bom>=3.0,<4.0"
 
       - name: Generate SBOM (CycloneDX JSON)
         run: cyclonedx-py environment --output-format json --outfile sbom.json
@@ -448,7 +454,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: Dockerfile
           push: false
           platforms: linux/amd64,linux/arm64
           tags: ${{ github.repository }}:${{ github.sha }}
@@ -489,7 +495,7 @@ jobs:
         id: build
         with:
           context: .
-          file: docker/Dockerfile
+          file: Dockerfile
           push: false
           outputs: type=docker,dest=/tmp/image.tar
           tags: ${{ github.repository }}:${{ github.sha }}

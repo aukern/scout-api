@@ -166,9 +166,11 @@ async def process_source(ctx: dict[str, Any], *, source_id: int) -> None:
 
     # Emit domain event
     try:
-        from scout_api.events import get_event_bus  # noqa: PLC0415
+        from scout_api.events import DomainEvent, get_event_bus  # noqa: PLC0415
 
-        get_event_bus().emit("source.processing_started", {"source_id": source_id})
+        get_event_bus().publish(
+            DomainEvent(event_type="source.processing_started", payload={"source_id": source_id})
+        )
     except Exception:  # noqa: BLE001, S110
         pass  # event bus is advisory; never block the processing path
 
@@ -211,16 +213,18 @@ async def process_source(ctx: dict[str, Any], *, source_id: int) -> None:
 
         # Emit domain event
         try:
-            from scout_api.events import get_event_bus  # noqa: PLC0415
+            from scout_api.events import DomainEvent, get_event_bus  # noqa: PLC0415
 
-            get_event_bus().emit(
-                "source.ready",
-                {
-                    "source_id": source_id,
-                    "collection_id": source.collection_id,
-                    "chunk_count": chunk_count,
-                    "embedding_model": settings.embedding_model,
-                },
+            get_event_bus().publish(
+                DomainEvent(
+                    event_type="source.ready",
+                    payload={
+                        "source_id": source_id,
+                        "collection_id": source.collection_id,
+                        "chunk_count": chunk_count,
+                        "embedding_model": settings.embedding_model,
+                    },
+                )
             )
         except Exception:  # noqa: BLE001, S110
             pass  # event bus is advisory; never block the processing path
@@ -241,15 +245,17 @@ async def process_source(ctx: dict[str, Any], *, source_id: int) -> None:
 
         # Emit domain event
         try:
-            from scout_api.events import get_event_bus  # noqa: PLC0415
+            from scout_api.events import DomainEvent, get_event_bus  # noqa: PLC0415
 
-            get_event_bus().emit(
-                "source.failed",
-                {
-                    "source_id": source_id,
-                    "collection_id": source.collection_id,
-                    "reason": reason,
-                },
+            get_event_bus().publish(
+                DomainEvent(
+                    event_type="source.failed",
+                    payload={
+                        "source_id": source_id,
+                        "collection_id": source.collection_id,
+                        "reason": reason,
+                    },
+                )
             )
         except Exception:  # noqa: BLE001, S110
             pass  # event bus is advisory; never block the failure path

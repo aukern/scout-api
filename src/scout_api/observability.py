@@ -50,6 +50,6 @@ def observed(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
                     _OPS_TOTAL.labels(name, outcome).inc()
                     _OPS_DURATION.labels(name).observe(time.perf_counter() - start)
 
-            return sync_wrapper  # type: ignore[return-value]
+            return sync_wrapper
 
     return decorator

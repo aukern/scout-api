@@ -43,7 +43,7 @@ class CollectionRepository:
     def __init__(self, conn: asyncpg.Connection | asyncpg.Pool) -> None:
         self._conn = conn
 
-    @observed("collections.create")  # type: ignore[untyped-decorator]
+    @observed("collections.create")
     async def create(self, name: str) -> CollectionRow:
         """Insert a new collection and return the created row.
 
@@ -73,7 +73,7 @@ class CollectionRepository:
             span.set_attribute("collection.id", row["id"])
             return CollectionRow(id=row["id"], name=row["name"])
 
-    @observed("collections.list_all")  # type: ignore[untyped-decorator]
+    @observed("collections.list_all")
     async def list_all(self) -> list[CollectionRow]:
         """Return all collections ordered by creation time (id ascending).
 
@@ -89,7 +89,7 @@ class CollectionRepository:
             span.set_attribute("collections.count", len(result))
             return result
 
-    @observed("collections.delete")  # type: ignore[untyped-decorator]
+    @observed("collections.delete")
     async def delete(self, name: str) -> None:
         """Delete a collection by name, cascading to its Sources and Chunks.
 
@@ -120,7 +120,7 @@ class CollectionRepository:
                 span.set_status(trace.StatusCode.ERROR, str(err))
                 raise err
 
-    @observed("collections.exists")  # type: ignore[untyped-decorator]
+    @observed("collections.exists")
     async def exists(self, name: str) -> bool:
         """Check whether a collection with the given name exists.
 
