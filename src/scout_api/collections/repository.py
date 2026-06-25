@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import asyncpg
-from aukern_infra.metrics import observed
+from scout_api.observability import observed
 from opentelemetry import trace
 
 from scout_api.collections.errors import (

@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import structlog
-from aukern_infra.metrics import observed
+from scout_api.observability import observed
 
 from scout_api.search.cache import SearchCache, make_cache_key
 from scout_api.search.contracts import SearchQuery, SearchRepositoryProtocol, SearchResult

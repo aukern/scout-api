@@ -35,7 +35,7 @@ import os
 from typing import Any
 
 import structlog
-from aukern_infra.metrics import observed
+from scout_api.observability import observed
 from opentelemetry import trace
 
 from scout_api.sources.contracts import SourceRow

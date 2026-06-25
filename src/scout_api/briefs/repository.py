@@ -22,7 +22,7 @@ import json
 
 import asyncpg
 import structlog
-from aukern_infra.metrics import observed
+from scout_api.observability import observed
 from opentelemetry import trace
 
 from scout_api.briefs.contracts import BriefCitation, BriefRow

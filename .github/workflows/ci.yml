@@ -27,17 +27,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install aukern-infra
-        run: |
-          # aukern-infra is an internal package not on PyPI.
-          # Set AUKERN_INFRA_GIT_URL secret (GitHub repo Settings → Secrets) to:
-          #   git+https://<token>@github.com/aukern/aukern-infra.git@main
-          # If the secret is absent, this step is a no-op (aukern-infra must then
-          # be present in requirements-lock.txt or installed another way).
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
-
       - name: Install dependencies
         run: |
           pip install -r requirements-lock.txt
@@ -89,12 +78,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install aukern-infra
-        run: |
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
-
       - name: Install dependencies
         run: |
           pip install -r requirements-lock.txt
@@ -139,12 +122,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
-      - name: Install aukern-infra
-        run: |
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
 
       - name: Install dependencies
         run: |
@@ -204,12 +181,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
-      - name: Install aukern-infra
-        run: |
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
 
       - name: Install dependencies
         run: |
@@ -285,12 +256,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install aukern-infra
-        run: |
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
-
       - name: Install dependencies
         run: |
           pip install -r requirements-lock.txt
@@ -322,12 +287,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install aukern-infra
-        run: |
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
-
       - name: Install dependencies
         run: |
           pip install -r requirements-lock.txt
@@ -355,12 +314,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
-      - name: Install aukern-infra
-        run: |
-          if [ -n "${{ secrets.AUKERN_INFRA_GIT_URL }}" ]; then
-            pip install "${{ secrets.AUKERN_INFRA_GIT_URL }}"
-          fi
 
       - name: Install dependencies
         run: |
@@ -439,7 +392,11 @@ jobs:
         run: |
           pip install pip-tools
           pip-compile pyproject.toml --extra dev --extra llm --output-file requirements-lock.check.txt --quiet --generate-hashes
-          diff requirements-lock.txt requirements-lock.check.txt || \
+          # Strip the auto-generated header comment (contains environment-specific flags like --pip-args)
+          # so the diff only compares actual package pins, not the command that generated them.
+          tail -n +3 requirements-lock.txt > requirements-lock.body.txt
+          tail -n +3 requirements-lock.check.txt > requirements-lock.check.body.txt
+          diff requirements-lock.body.txt requirements-lock.check.body.txt || \
             (echo "LOCKFILE STALE: run 'make lock' to regenerate requirements-lock.txt" && exit 1)
 
   # ── SBOM ─────────────────────────────────────────────────────────────────────
