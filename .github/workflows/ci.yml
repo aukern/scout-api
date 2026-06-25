@@ -200,6 +200,9 @@ jobs:
 
       - name: Run mutation tests
         run: |
+          # Warm up: run tests once so imports are cached. Without this, mutmut's
+          # baseline measurement sees cold-start latency and every mutant times out.
+          python -m pytest tests/ -x -q --tb=no -m "not integration" > /dev/null 2>&1 || true
           mutmut run \
             --paths-to-mutate src/ \
             --tests-dir tests/ \
@@ -378,7 +381,7 @@ jobs:
           cache-from: type=gha
 
       - name: Trivy — scan OS packages and app dependencies
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: scan-target:latest
           format: table
