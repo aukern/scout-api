@@ -82,7 +82,7 @@ if [ -f "$ROOT/requirements-lock.txt" ]; then
   PIP_TOOLS_CACHE_DIR="${TMPDIR:-/tmp}/pip-tools-cache"
   mkdir -p "$PIP_TOOLS_CACHE_DIR"
   "$VENV/pip-compile" "$ROOT/pyproject.toml" \
-      --extra dev --extra llm \
+      --extra dev --extra llm --no-upgrade \
       --output-file "$TMPLOCK" --quiet 2>/dev/null || true
   # Only fail if pip-compile produced a non-empty result and it differs.
   # Strip all comment lines before diffing — the pip-compile header contains environment-specific
