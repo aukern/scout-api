@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -88,7 +88,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -140,7 +140,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -206,7 +206,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -287,7 +287,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -325,7 +325,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -360,7 +360,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install aukern-infra
         run: |
@@ -440,7 +440,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Check requirements-lock.txt is current
         run: |
@@ -462,7 +462,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: uv
+          cache: pip
 
       - name: Install dependencies
         run: |
