@@ -346,12 +346,15 @@ jobs:
           echo "No hardcoded secrets found."
 
       - name: Scan git history for secrets (gitleaks)
+        if: env.GITLEAKS_LICENSE != ''
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
         continue-on-error: true
-        # Advisory: reports to PR comments but does not block the build.
-        # Upgrade to fail-on-detection once baseline is clean.
+        # Requires GITLEAKS_LICENSE secret (gitleaks-action v2 needs a paid license).
+        # Step is skipped entirely if the secret is not configured — no noisy error annotations.
+        # To enable: add GITLEAKS_LICENSE to repo secrets, then this step runs automatically.
 
   # ── Container image CVE scan ─────────────────────────────────────────────────
   trivy:
