@@ -158,7 +158,7 @@ fi
 echo ""
 echo "── Mutation Tests ──"
 echo "  ⚠️  SKIPPED locally — runs in CI on push to main and weekly on schedule"
-echo "      To run manually: mutmut run --paths-to-mutate \$(find src/ -path '*/contracts.py' -o -path '*/service.py' -o -path '*/repository.py' | tr '\n' ',') --tests-dir tests/"
+echo "      To run manually: mutmut run --paths-to-mutate \$(find src/ \( -path '*/contracts.py' -o -path '*/service.py' -o -path '*/repository.py' \) | tr '\n' ',') --tests-dir tests/"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
