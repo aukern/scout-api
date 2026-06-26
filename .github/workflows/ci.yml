@@ -206,8 +206,7 @@ jobs:
           mutmut run \
             --paths-to-mutate src/ \
             --tests-dir tests/ \
-            --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'" \
-            --no-progress
+            --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'"
         env:
           APP_ENV: dev
 
