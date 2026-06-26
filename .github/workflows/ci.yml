@@ -160,6 +160,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
 
       - name: Save benchmark baseline
+        if: hashFiles('benchmark-results.json') != ''
         uses: actions/cache@v4
         with:
           path: .benchmarks/
@@ -167,7 +168,7 @@ jobs:
 
       - name: Upload benchmark report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && hashFiles('benchmark-results.json') != ''
         with:
           name: benchmark-report
           path: benchmark-results.json
@@ -203,8 +204,15 @@ jobs:
           # Warm up: run tests once so imports are cached. Without this, mutmut's
           # baseline measurement sees cold-start latency and every mutant times out.
           python -m pytest tests/ -x -q --tb=no -m "not integration" > /dev/null 2>&1 || true
+          # Mutate only domain logic (slice service/repository files), not scaffolded
+          # infrastructure (main.py, errors.py, health.py, observability.py, etc.).
+          MUTATE_PATHS=$(find src/ -path "*/contracts.py" -o -path "*/service.py" -o -path "*/repository.py" | tr '\n' ',')
+          if [ -z "$MUTATE_PATHS" ]; then
+            echo "No domain files found to mutate — skipping"
+            exit 0
+          fi
           mutmut run \
-            --paths-to-mutate src/ \
+            --paths-to-mutate "${MUTATE_PATHS%,}" \
             --tests-dir tests/ \
             --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'"
         env:
