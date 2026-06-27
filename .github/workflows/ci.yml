@@ -248,6 +248,7 @@ jobs:
           else:
               score = (killed / total) * 100
               icon = "✅" if score >= 80 else "⚠️ " if score >= 60 else "🔴"
+              print(f"{icon} Mutation score: {score:.1f}% ({killed}/{total} killed, {survived} survived, {timeout} timed out)")
               with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
                   f.write(f"## Mutation Testing\n\n")
                   f.write(f"{icon} **Mutation score: {score:.1f}%** ({killed}/{total} mutants killed, {survived} survived, {timeout} timed out)\n\n")
