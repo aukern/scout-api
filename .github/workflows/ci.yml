@@ -235,9 +235,10 @@ jobs:
           conn.close()
 
           counts = dict(rows)
-          killed = counts.get("killed", 0)
-          survived = counts.get("survived", 0)
-          timeout = counts.get("timeout", 0)
+          # mutmut 2.x uses "OK"/"SURVIVED"/"TIMEOUT" as status values
+          killed = counts.get("OK", counts.get("killed", 0))
+          survived = counts.get("SURVIVED", counts.get("survived", 0))
+          timeout = counts.get("TIMEOUT", counts.get("timeout", 0))
           total = killed + survived + timeout
 
           if total == 0:
