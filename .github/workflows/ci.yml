@@ -234,11 +234,13 @@ jobs:
           rows = conn.execute("SELECT status, count(*) FROM mutant GROUP BY status").fetchall()
           conn.close()
 
+          print(f"DEBUG mutmut status counts: {rows}")
+
           counts = dict(rows)
-          # mutmut 2.x uses "OK"/"SURVIVED"/"TIMEOUT" as status values
+          # mutmut 2.x uses "OK"/"BAD_SURVIVED"/"BAD_TIMEOUT" as status values
           killed = counts.get("OK", counts.get("killed", 0))
-          survived = counts.get("SURVIVED", counts.get("survived", 0))
-          timeout = counts.get("TIMEOUT", counts.get("timeout", 0))
+          survived = counts.get("BAD_SURVIVED", counts.get("SURVIVED", counts.get("survived", 0)))
+          timeout = counts.get("BAD_TIMEOUT", counts.get("TIMEOUT", counts.get("timeout", 0)))
           total = killed + survived + timeout
 
           if total == 0:
