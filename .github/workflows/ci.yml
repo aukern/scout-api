@@ -215,7 +215,10 @@ jobs:
             --paths-to-mutate "${MUTATE_PATHS%,}" \
             --tests-dir tests/ \
             --no-progress \
-            --runner "bash scripts/mutmut_runner.sh" || true
+            --runner "bash scripts/mutmut_runner.sh" > mutmut.log 2>&1 || true
+          echo "--- mutmut output ---"
+          cat mutmut.log
+          echo "--- cache exists: $(ls .mutmut-cache 2>/dev/null && echo YES || echo NO) ---"
         env:
           APP_ENV: dev
 
@@ -264,7 +267,9 @@ jobs:
         if: always()
         with:
           name: mutation-report
-          path: .mutmut-cache
+          path: |
+            .mutmut-cache
+            mutmut.log
           retention-days: 7
           if-no-files-found: warn
 
