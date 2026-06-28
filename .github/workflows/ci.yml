@@ -216,7 +216,7 @@ jobs:
             --paths-to-mutate "${MUTATE_PATHS%,}" \
             --tests-dir tests/ \
             --no-progress \
-            --runner "APP_ENV=dev $PYTEST_BIN tests/ -x -q --tb=no -m 'not integration'" > mutmut.log 2>&1 || true
+            --runner "$PYTEST_BIN tests/ -x -q --tb=no -m 'not integration'" > mutmut.log 2>&1 || true
           echo "--- mutmut output ---"
           cat mutmut.log
           echo "--- cache exists: $(ls .mutmut-cache 2>/dev/null && echo YES || echo NO) ---"
