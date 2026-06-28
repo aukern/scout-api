@@ -217,7 +217,9 @@ jobs:
             --tests-dir tests/ \
             --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'" || true
           echo "--- mutmut cache check ---"
-          ls -lah .mutmut-cache 2>&1 || echo ".mutmut-cache does not exist after run"
+          ls -lah .mutmut-cache 2>&1 || echo ".mutmut-cache does not exist in working dir"
+          ls -lah ~/.mutmut-cache 2>&1 || echo ".mutmut-cache does not exist in home dir"
+          find / -name ".mutmut-cache" -maxdepth 6 2>/dev/null || echo "not found anywhere"
         env:
           APP_ENV: dev
 
