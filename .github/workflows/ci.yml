@@ -210,12 +210,13 @@ jobs:
             exit 0
           fi
           echo "Mutating paths: ${MUTATE_PATHS%,}"
-          chmod +x scripts/mutmut_runner.sh
+          PYTEST_BIN=$(which pytest)
+          echo "Using pytest: $PYTEST_BIN"
           APP_ENV=dev mutmut run \
             --paths-to-mutate "${MUTATE_PATHS%,}" \
             --tests-dir tests/ \
             --no-progress \
-            --runner "bash scripts/mutmut_runner.sh" > mutmut.log 2>&1 || true
+            --runner "APP_ENV=dev $PYTEST_BIN tests/ -x -q --tb=no -m 'not integration'" > mutmut.log 2>&1 || true
           echo "--- mutmut output ---"
           cat mutmut.log
           echo "--- cache exists: $(ls .mutmut-cache 2>/dev/null && echo YES || echo NO) ---"
