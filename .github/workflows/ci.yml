@@ -212,14 +212,18 @@ jobs:
             exit 0
           fi
           echo "Mutating paths: ${MUTATE_PATHS%,}"
-          mutmut run \
+          # Write runner script to avoid shell quoting issues with -m expression
+          cat > /tmp/mutmut_runner.sh << 'RUNNER'
+          #!/bin/bash
+          APP_ENV=dev python -m pytest tests/ -x -q --tb=no -m "not integration"
+          RUNNER
+          chmod +x /tmp/mutmut_runner.sh
+          APP_ENV=dev mutmut run \
             --paths-to-mutate "${MUTATE_PATHS%,}" \
             --tests-dir tests/ \
-            --runner "python -m pytest tests/ -x -q --tb=no -m 'not integration'" || true
+            --runner "bash /tmp/mutmut_runner.sh" || true
           echo "--- mutmut cache check ---"
-          ls -lah .mutmut-cache 2>&1 || echo ".mutmut-cache does not exist in working dir"
-          ls -lah ~/.mutmut-cache 2>&1 || echo ".mutmut-cache does not exist in home dir"
-          find / -name ".mutmut-cache" -maxdepth 6 2>/dev/null || echo "not found anywhere"
+          ls -lah .mutmut-cache 2>&1 || echo ".mutmut-cache does not exist"
         env:
           APP_ENV: dev
 
