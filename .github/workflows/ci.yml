@@ -260,7 +260,7 @@ jobs:
 
       - name: Upload mutation report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && hashFiles('.mutmut-cache') != ''
         with:
           name: mutation-report
           path: .mutmut-cache
